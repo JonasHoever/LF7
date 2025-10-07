@@ -35,7 +35,7 @@ class UserSystem():
             return True
         except Exception as e:
             print(e)
-            return False
+            return False, e
 
     def check_pin_by_nfc(self, nfc_tag):
         result = self.sql.query("SELECT pin FROM users WHERE nfc_tag = %s", (nfc_tag,))

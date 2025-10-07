@@ -25,8 +25,11 @@ def register_client():
 
 @app.route('/nfc/register/<int:nfc_tag>/<string:name>/<string:surname>')
 def register_nfc(nfc_tag, name, surname):
-    usys.register_nfc_tag(nfc_tag, name, surname)
-    return f"NFC-Tag {nfc_tag} für {name} {surname} wurde angelegt!"
+    register = usys.register_nfc_tag(nfc_tag, name, surname)
+    if register[0] == True:
+        return f"NFC-Tag {nfc_tag} für {name} {surname} wurde angelegt!"
+    else:
+        return register[1]
 
 @app.route('/nfc/request', methods=['POST'])
 def request_nfc():
