@@ -100,15 +100,23 @@ class Client_Short_Function():
     def request(self, nfc_tag):
         check_res, check_pin = self.USC.request(nfc_tag)
         if check_res == False:
-            return f"NFC-tag nicht registriert!"
+            print(f"NFC-tag: {nfc_tag} nicht registriert!")
+            print("Done!")
+            return 
         elif check_res == True and check_pin == False:
+            print(f"Pin für Tag: {nfc_tag} nicht gesetzt!")
             res = self.USC.singup(nfc_tag)
             print(res)
+            print("Done!")
             return
         elif check_res == True and check_pin == True:
+            print("Bitte Anmelden!")
             res = self.USC.signin(nfc_tag)
             print(res)
+            print("Done!")
             return
         else:
+            print("Fehler!")
             print(check_res)
+            print("Done!")
             return
