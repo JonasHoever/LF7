@@ -61,7 +61,7 @@ class UserSystem():
         query = "SELECT id FROM users WHERE nfc_tag = %s LIMIT 1"
         result = self.sql.query(query, (nfc_tag,))
         result2 = self.check_pin_by_nfc(nfc_tag)
-        return bool(result, result2)
+        return bool(result), bool(result2)
             
     def signup(self, nfc_tag, pin):
         try:
