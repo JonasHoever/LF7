@@ -29,7 +29,7 @@ def register_nfc(nfc_tag, name, surname):
     if register[0] == True:
         return f"NFC-Tag {nfc_tag} für {name} {surname} wurde angelegt!"
     else:
-        return register[1]
+        return str(register[1]), 400
 
 @app.route('/nfc/request', methods=['POST'])
 def request_nfc():
