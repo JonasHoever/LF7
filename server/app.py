@@ -23,9 +23,9 @@ def start_page():
 def register_client():
     pass
 
-@app.route('nfc/register/<int:nfc_tag>/<string:name>/<string:surname>')
+@app.route('/nfc/register/<int:nfc_tag>/<string:name>/<string:surname>')
 def register_nfc(nfc_tag, name, surname):
-    usys.register_nfc_tag(nfc_tag,name,surname)
+    usys.register_nfc_tag(nfc_tag, name, surname)
     return f"NFC-Tag {nfc_tag} für {name} {surname} wurde angelegt!"
 
 @app.route('/nfc/request', methods=['POST'])
