@@ -66,8 +66,8 @@ class UserSystem():
     def signup(self, nfc_tag, pin):
         try:
             hashed_pin = self.ph.hash(str(pin))
-            self.sql.insert_query("insert into users (nfc_tag, pin) VALUES (%s, %s)", (nfc_tag, hashed_pin))
-            print(f"User für {nfc_tag} angelegt!")
+            self.sql.insert_query("UPDATE users SET pin = %s WHERE nfc_tag = %s", (hashed_pin, nfc_tag))
+            print(f"Pin für Tag: {nfc_tag} gesetzt!")
             return True
         except Exception as e:
             print(f"Fehler beim anlegen einer users für {nfc_tag}!")
