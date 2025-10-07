@@ -28,6 +28,9 @@ class UserSystem():
         self.sql = Sql()
         self.ph = PasswordHasher()
 
+    def check_pin_by_nfc(self, nfc_tag):
+        result = ""
+
     def get_user_id_by_nfc(self, nfc_tag):
         uid = self.sql.query("SELECT id from users where nfc_tag = %s",(nfc_tag,))
         return uid
