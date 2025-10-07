@@ -3,7 +3,7 @@ import serial
 
 class Usersystem_client():
     def __init__(self):
-        self.server_url = "127.0.0.1:4001"
+        self.server_url = "http://192.180.160.5:4001"
 
     def request(self, nfc_tag):
         try:
@@ -45,14 +45,14 @@ class Usersystem_client():
     
     def fetch_signup(self, nfc_tag, pin):
         response = requests.post(
-            f"http://{self.server_url}/nfc/signup",
+            f"{self.server_url}/nfc/signup",
             json={"nfc_tag": nfc_tag, "pin": pin}
         )
         return response.json()
     
     def fetch_request(self, nfc_tag):
         response = requests.post(
-            f"http://{self.server_url}/nfc/request",
+            f"{self.server_url}/nfc/request",
             json={"nfc_tag": nfc_tag}
         )
         return response.json()

@@ -7,7 +7,7 @@ class Init():
         self.cursor = self.conn.cursor()
     
     def create_tables(self):
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS users (id int auto_increment primary key NOT NULL, nfc_tag bigint unique NOT NULL, pin varchar(255), active tinyint default 1);")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS users (id int auto_increment primary key NOT NULL, nfc_tag bigint unique NOT NULL, pin varchar(255), name varchar(255), surname varchar(255), active tinyint default 1);")
         self.cursor.execute("CREATE TABLE IF NOT EXISTS user_data(session_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, checkin_time DATETIME, checkout_time DATETIME, date DATE DEFAULT CURRENT_DATE, status tinyint DEFAULT 1, FOREIGN KEY (user_id) REFERENCES users(id))")
     def del_tables(self):
         self.cursor.execute("DROP TABLE IF EXISTS user_data")
