@@ -43,8 +43,8 @@ def signin_nfc():
     data = request.get_json()
     nfc_tag = data.get('nfc_tag', None)
     pin = data.get('pin', None)
-    success, uid = usys.signin(nfc_tag, pin)
-    return jsonify({"success": success, "user_id": uid})
+    success, uid, name = usys.signin(nfc_tag, pin)
+    return jsonify({"success": success, "user_id": uid, "name": name})
 
 @app.route('/nfc/signup', methods=['POST'])
 def signup_nfc():

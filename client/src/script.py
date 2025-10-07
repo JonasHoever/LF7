@@ -1,7 +1,7 @@
 import requests
 import serial
 
-class Usersystem_client():
+class UserSystemClient():
     def __init__(self):
         self.server_url = "http://192.180.160.5:4001"
 
@@ -13,7 +13,7 @@ class Usersystem_client():
             return check_nfc['exists'], check_nfc['pin_set']
         except Exception as e:
             print(e)
-            return None, None
+            return e, None
 
     def singup(self, nfc_tag):
         pin_bool = False
@@ -44,6 +44,32 @@ class Usersystem_client():
         print("User angelegt!")
         return True
     
+    def signin(self, nfc_tag, pin):
+        pin_bool = False
+        while pin_bool == False:
+            pin = input("Bitte geben Sie Ihre 4-stellige PIN ein: ")
+            if len(pin) == 4 and pin.isdigit():
+                print("Pin format korrekt!")
+                pin_bool = True
+                try:
+                    res = self.fetch_signin(nfc_tag, pin)
+                    if res[0] == True:
+                        return res[0], res[1], res[2]
+                    elif res[0] == False:
+                        pin_bool == False
+                    else:
+                        raise Exception
+                except Exception as e:
+                    print(e)
+                    return False, None, None
+            else:
+                print("Ungültiger Pin, bitte erneut eingeben!")
+                pin_bool = False
+                pin_confirmed = False
+        
+        print("User angelegt!")
+        return True
+
     def fetch_signup(self, nfc_tag, pin):
         response = requests.post(
             f"{self.server_url}/nfc/signup",
@@ -57,3 +83,18 @@ class Usersystem_client():
             json={"nfc_tag": nfc_tag}
         )
         return response.json()
+    
+    def fetch_signin(self, nfc_tag, pin):
+        response = requests.post(
+            f"{self.server_url}/nfc/signin",
+            json={"nfc_tag": nfc_tag, "pin": pin}
+        )
+        data = response.json()
+        return data.get("success"), data.get("user_id"), data.get("name")
+
+    
+class Client_Short_Function():
+    def __init__(self):
+        self.USC = UserSystemClient()
+
+    def request(self, nfc_tag):

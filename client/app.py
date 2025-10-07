@@ -7,7 +7,7 @@ import time
 
 app = Flask(__name__)
 
-usys = script.Usersystem_client()
+usys = script.UserSystemClient()
 
 # Passe den Port und die Baudrate an deinen Arduino an!
 ser = serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
@@ -24,6 +24,10 @@ def nfc_scan_loop():
 @app.route('/')
 def main():
     return "Client läuft!"
+
+@app.route('/nfc/request')
+def request():
+    pass
 
 if __name__ == '__main__':
     threading.Thread(target=nfc_scan_loop, daemon=True).start()
