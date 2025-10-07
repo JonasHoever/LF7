@@ -44,7 +44,7 @@ class UserSystemClient():
         print("User angelegt!")
         return True
     
-    def signin(self, nfc_tag, pin):
+    def signin(self, nfc_tag):
         pin_bool = False
         while pin_bool == False:
             pin = input("Bitte geben Sie Ihre 4-stellige PIN ein: ")
@@ -98,3 +98,17 @@ class Client_Short_Function():
         self.USC = UserSystemClient()
 
     def request(self, nfc_tag):
+        check_res, check_pin = self.USC.request(nfc_tag)
+        if check_res == False:
+            return f"NFC-tag nicht registriert!"
+        elif check_res == True and check_pin == False:
+            res = self.USC.singup(nfc_tag)
+            print(res)
+            return
+        elif check_res == True and check_pin == True:
+            res = self.USC.signin(nfc_tag)
+            print(res)
+            return
+        else:
+            print(check_res)
+            return
