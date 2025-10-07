@@ -32,7 +32,7 @@ class UserSystem():
         try:
             res = self.sql.insert_query("INSERT INTO users (nfc_tag, name, surname) VALUES (%s,%s,%s)",(nfc_tag,name,surname))
             print(res)
-            return True
+            return True, None
         except Exception as e:
             print(e)
             return False, e
