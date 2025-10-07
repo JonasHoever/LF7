@@ -28,7 +28,7 @@ def request_nfc():
     data = request.get_json()
     nfc_tag = data.get('nfc_tag', None)
     result = usys.check_request(nfc_tag)
-    return jsonify({"exists": result})
+    return jsonify({"exists": result[0], "pin_set": result[1]})
 
 @app.route('/nfc/signin', methods=['POST'])
 def signin_nfc():

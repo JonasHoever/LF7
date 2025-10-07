@@ -28,8 +28,20 @@ class UserSystem():
         self.sql = Sql()
         self.ph = PasswordHasher()
 
+    def register_nfc_tag(self, nfc_tag, name, surname):
+        try:
+            res = self.sql.insert_query("INSERT INTO users (nfc_tag, name, surname) VALUES (%s,%s,%s)",(nfc_tag,name,surname))
+            print(res)
+            return True
+        except Exception as e:
+            print(e)
+            return False
+
     def check_pin_by_nfc(self, nfc_tag):
-        result = ""
+        result = self.sql.query("SELECT pin FROM users WHERE nfc_tag = %s", (nfc_tag,))
+        if result and result[0][0] is not None:
+            return True
+        return False
 
     def get_user_id_by_nfc(self, nfc_tag):
         uid = self.sql.query("SELECT id from users where nfc_tag = %s",(nfc_tag,))
@@ -44,7 +56,8 @@ class UserSystem():
     def check_request(self, nfc_tag):
         query = "SELECT id FROM users WHERE nfc_tag = %s LIMIT 1"
         result = self.sql.query(query, (nfc_tag,))
-        return bool(result)
+        result2 = self.check_pin_by_nfc(nfc_tag)
+        return bool(result, result2)
             
     def signup(self, nfc_tag, pin):
         try:

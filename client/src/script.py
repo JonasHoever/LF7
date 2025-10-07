@@ -9,10 +9,11 @@ class Usersystem_client():
         try:
             check_nfc = self.fetch_request(nfc_tag)
             print(check_nfc['exists'])
-            return check_nfc['exists']
+            print(check_nfc['pin_set'])
+            return check_nfc['exists'], check_nfc['pin_set']
         except Exception as e:
             print(e)
-            return None
+            return None, None
 
     def singup(self, nfc_tag):
         pin_bool = False
