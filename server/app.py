@@ -10,7 +10,7 @@ dbs = db_setup.Init()
 usys = script.UserSystem()
 tsys = script.WorkTimeSystem()
 
-dbs.init_db()
+dbs.create_tables()
 
 def end_all_sessions():
     tsys.end_all_session("23:59")
