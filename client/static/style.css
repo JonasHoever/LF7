@@ -1,0 +1,159 @@
+body { 
+    font-family: Arial, sans-serif; 
+    max-width: 800px; 
+    margin: 0 auto; 
+    padding: 20px; 
+    background-color: #f5f5f5; 
+}
+
+.container { 
+    background: white; 
+    padding: 30px; 
+    border-radius: 10px; 
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+}
+
+h1 { 
+    color: #333; 
+    text-align: center; 
+    margin-bottom: 30px; 
+}
+
+.form-group { 
+    margin-bottom: 20px; 
+}
+
+label { 
+    display: block; 
+    margin-bottom: 5px; 
+    font-weight: bold; 
+    color: #555; 
+}
+
+input[type="text"] { 
+    width: 100%; 
+    padding: 10px; 
+    border: 2px solid #ddd; 
+    border-radius: 5px; 
+    font-size: 16px; 
+    box-sizing: border-box;
+}
+
+input[type="text"]:focus { 
+    outline: none; 
+    border-color: #007bff; 
+}
+
+button { 
+    background-color: #007bff; 
+    color: white; 
+    padding: 12px 25px; 
+    border: none; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    font-size: 16px; 
+}
+
+button:hover { 
+    background-color: #0056b3; 
+}
+
+.result { 
+    margin-top: 20px; 
+    padding: 15px; 
+    border-radius: 5px; 
+}
+
+.success { 
+    background-color: #d4edda; 
+    border: 1px solid #c3e6cb; 
+    color: #155724; 
+}
+
+.error { 
+    background-color: #f8d7da; 
+    border: 1px solid #f5c6cb; 
+    color: #721c24; 
+}
+
+.info { 
+    background-color: #d1ecf1; 
+    border: 1px solid #bee5eb; 
+    color: #0c5460; 
+}
+
+.status { 
+    margin-top: 20px; 
+    padding: 10px; 
+    background-color: #e9ecef; 
+    border-radius: 5px; 
+}
+
+.nfc-info { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 10px; 
+    margin-top: 10px; 
+}
+
+.nfc-detail { 
+    padding: 10px; 
+    background-color: #f8f9fa; 
+    border-radius: 5px; 
+}
+
+.nfc-scanner {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.scanner-status {
+    margin-top: 15px;
+}
+
+.scanner-active {
+    color: #28a745;
+    font-size: 18px;
+}
+
+.scanner-inactive {
+    color: #dc3545;
+    font-size: 18px;
+}
+
+.pulse {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: #28a745;
+    margin: 0 auto 10px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
+}
+
+@media (max-width: 600px) {
+    .nfc-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .container {
+        padding: 20px;
+    }
+}

@@ -23,7 +23,7 @@ def start_page():
 def register_client():
     pass
 
-@app.route('/nfc/register/<int:nfc_tag>/<string:name>/<string:surname>')
+@app.route('/nfc/register/<string:nfc_tag>/<string:name>/<string:surname>')
 def register_nfc(nfc_tag, name, surname):
     register = usys.register_nfc_tag(nfc_tag, name, surname)
     if register[0] == True:

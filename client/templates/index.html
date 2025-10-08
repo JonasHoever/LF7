@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NFC Client Web UI</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🔖 NFC Client Web Interface</h1>
+        
+        <div class="nfc-scanner">
+            <h3>🔖 NFC Scanner</h3>
+            <p>Lege einen NFC-Tag auf den Arduino-Scanner auf...</p>
+            <div class="scanner-status">
+                {% if nfc_status == '📡 Aktiv und bereit' %}
+                    <div class="scanner-active">
+                        <div class="pulse"></div>
+                        <strong>Scanner bereit - Warte auf Tag...</strong>
+                    </div>
+                {% else %}
+                    <div class="scanner-inactive">
+                        <strong>{{ nfc_status }}</strong>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if result %}
+        <div class="result {{ 'success' if result.success else 'error' }}">
+            <h3>{{ '✅ Erfolg' if result.success else '❌ Fehler' }}</h3>
+            <p><strong>{{ result.message }}</strong></p>
+            <small>Gescannt um: {{ result.timestamp }}</small>
+            
+            {% if result.success %}
+            <div class="nfc-info">
+                <div class="nfc-detail">
+                    <strong>Tag ID:</strong><br>
+                    <code>{{ result.nfc_tag }}</code>
+                </div>
+                <div class="nfc-detail">
+                    <strong>Tag existiert:</strong><br>
+                    {{ '✅ Ja' if result.exists else '❌ Nein' }}
+                </div>
+                <div class="nfc-detail">
+                    <strong>PIN gesetzt:</strong><br>
+                    {{ '🔐 Ja' if result.pin_set else '🔓 Nein' }}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if result.error %}
+            <p><strong>Fehlerdetails:</strong> {{ result.error }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="status">
+            <h4>📡 Client Status</h4>
+            <p><strong>Arduino Serial Port:</strong> {{ arduino_status }}</p>
+            <p><strong>NFC Scanner:</strong> {{ nfc_status }}</p>
+            <p><strong>Server Verbindung:</strong> Bereit</p>
+        </div>
+    </div>
+</body>
+</html>
