@@ -50,22 +50,19 @@ class UserSystemClient():
             pin = input("Bitte geben Sie Ihre 4-stellige PIN ein: ")
             if len(pin) == 4 and pin.isdigit():
                 print("Pin format korrekt!")
-                pin_bool = True
                 try:
                     res = self.fetch_signin(nfc_tag, pin)
                     if res[0] == True:
                         return res[0], res[1], res[2]
-                    elif res[0] == False:
-                        pin_bool == False
                     else:
-                        raise Exception
+                        print("Falsche PIN, bitte erneut eingeben!")
+                        pin_bool = False  # Schleife läuft weiter
                 except Exception as e:
                     print(e)
                     return False, None, None
             else:
                 print("Ungültiger Pin, bitte erneut eingeben!")
                 pin_bool = False
-                pin_confirmed = False
         
         print("User angelegt!")
         return True
