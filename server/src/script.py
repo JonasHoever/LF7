@@ -54,7 +54,7 @@ class UserSystem():
         return None
 
     def get_name_by_nfc(self, nfc_tag):
-        res = self.sql.query(f"SELECT name from users where nfc_tag = {nfc_tag}")
+        res = self.sql.query("SELECT name from users where nfc_tag = %s", (nfc_tag,))
         return res
 
     def check_request(self, nfc_tag):
@@ -80,7 +80,8 @@ class UserSystem():
             print(f"Pin für {nfc_tag} angenommen!")
             uid_result = self.get_user_id_by_nfc(nfc_tag)
             uid = uid_result[0][0] if uid_result else None
-            name = self.get_name_by_nfc(nfc_tag)
+            name_result = self.get_name_by_nfc(nfc_tag)
+            name = name_result[0][0] if name_result else None
             return True, uid, name
         except Exception as e:
             print(e)

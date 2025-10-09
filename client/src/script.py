@@ -7,13 +7,15 @@ class UserSystemClient():
 
     def request(self, nfc_tag):
         try:
-            check_nfc = self.fetch_request(nfc_tag)
-            print(check_nfc['exists'])
-            print(check_nfc['pin_set'])
-            return check_nfc['exists'], check_nfc['pin_set']
+            # Verwende die korrigierte fetch_request Funktion
+            exists, pin_set = self.fetch_request(nfc_tag)
+            print(f"🔍 Tag-Status: exists={exists}, pin_set={pin_set}")
+            print(exists)
+            print(pin_set)
+            return exists, pin_set
         except Exception as e:
-            print(e)
-            return e, None
+            print(f"❌ Fehler in request: {e}")
+            return False, False
 
     def singup(self, nfc_tag):
         pin_bool = False
@@ -68,26 +70,55 @@ class UserSystemClient():
         return True
 
     def fetch_signup(self, nfc_tag, pin):
-        response = requests.post(
-            f"{self.server_url}/nfc/signup",
-            json={"nfc_tag": nfc_tag, "pin": pin}
-        )
-        return response.json()
+        """Erstellt PIN für Tag"""
+        url = f"{self.server_url}/nfc/signup"
+        data = {"nfc_tag": nfc_tag, "pin": pin}
+        try:
+            print(f"📡 PIN-Setup Request: {url} mit {data}")
+            response = requests.post(url, json=data, timeout=10)  # Längeres Timeout
+            print(f"📨 PIN-Setup Antwort: Status={response.status_code}, Body={response.text}")
+            result = response.json()
+            return result.get("success", False)
+        except Exception as e:
+            print(f"❌ Fehler bei PIN-Setup: {e}")
+            return False
     
     def fetch_request(self, nfc_tag):
-        response = requests.post(
-            f"{self.server_url}/nfc/request",
-            json={"nfc_tag": nfc_tag}
-        )
-        return response.json()
+        """Prüft Tag-Status"""
+        url = f"{self.server_url}/nfc/request"
+        data = {"nfc_tag": nfc_tag}
+        try:
+            response = requests.post(url, json=data, timeout=10)  # Längeres Timeout
+            if response.status_code == 200:
+                result = response.json()
+                return result.get("exists", False), result.get("pin_set", False)
+        except Exception as e:
+            print(f"❌ Fehler bei request: {e}")
+        return False, False
     
     def fetch_signin(self, nfc_tag, pin):
-        response = requests.post(
-            f"{self.server_url}/nfc/signin",
-            json={"nfc_tag": nfc_tag, "pin": pin}
-        )
-        data = response.json()
-        return data.get("success"), data.get("user_id"), data.get("name")
+        """Login mit PIN - KORRIGIERTE VERSION"""
+        url = f"{self.server_url}/nfc/signin"
+        data = {"nfc_tag": nfc_tag, "pin": pin}
+        try:
+            print(f"🔑 Login-Versuch: {url} mit Tag={nfc_tag}, PIN={pin}")
+            response = requests.post(url, json=data, timeout=10)  # Längeres Timeout
+            print(f"📨 Server-Antwort: Status={response.status_code}, Body={response.text}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                success = result.get("success", False)
+                user_id = result.get("user_id", None)
+                name = result.get("name", None)
+                
+                print(f"🔍 Login-Ergebnis: success={success}, user_id={user_id}, name={name}")
+                return success, user_id, name
+        except Exception as e:
+            print(f"❌ Login-Fehler: {e}")
+            import traceback
+            print(f"🔍 Traceback: {traceback.format_exc()}")
+        
+        return False, None, None
 
     
 class Client_Short_Function():
@@ -117,3 +148,163 @@ class Client_Short_Function():
             print(check_res)
             print("Done!")
             return
+
+class Client_Short_Function2():
+    def __init__(self):
+        self.USC = UserSystemClient()
+
+    def request(self, nfc_tag):
+        # Web-UI kompatible Funktion die brauchbare Daten zurückgibt
+        check_res, check_pin = self.USC.request(nfc_tag)
+        if check_res == False:
+            print(f"NFC-tag: {nfc_tag} nicht registriert!")
+            print("Done!")
+            return {
+                'status': 'not_registered',
+                'message': f'NFC-Tag {nfc_tag} ist nicht registriert. Bitte registrieren Sie sich zuerst.',
+                'action_needed': 'register',
+                'nfc_tag': nfc_tag
+            }
+        elif check_res == True and check_pin == False:
+            print(f"Pin für Tag: {nfc_tag} nicht gesetzt!")
+            print("Done!")
+            return {
+                'status': 'needs_pin_setup',
+                'message': f'Willkommen! Bitte erstellen Sie eine 4-stellige PIN für Tag {nfc_tag}.',
+                'action_needed': 'pin_setup',
+                'nfc_tag': nfc_tag
+            }
+        elif check_res == True and check_pin == True:
+            print("Tag ist vollständig eingerichtet!")
+            return {
+                'status': 'ready_for_login',
+                'message': f'✅ Tag {nfc_tag} ist registriert und PIN ist gesetzt. Login möglich!',
+                'action_needed': 'pin_login', 
+                'nfc_tag': nfc_tag
+            }
+        else:
+            print("Fehler!")
+            print(check_res)
+            print("Done!")
+            return {
+                'status': 'error',
+                'message': f'Unbekannter Fehler bei Tag {nfc_tag}. Bitte versuchen Sie es erneut.',
+                'action_needed': 'none',
+                'nfc_tag': nfc_tag
+            }
+            return
+
+    def web_request(self, nfc_tag):
+        """Web-UI kompatible Version - gibt strukturierte Daten zurück"""
+        try:
+            check_res, check_pin = self.USC.request(nfc_tag)
+            
+            if check_res == False:
+                return {
+                    "status": "not_registered",
+                    "message": f"NFC-Tag {nfc_tag} ist nicht registriert!",
+                    "action_needed": "register",
+                    "nfc_tag": nfc_tag
+                }
+            elif check_res == True and check_pin == False:
+                return {
+                    "status": "needs_pin_setup",
+                    "message": f"PIN für Tag {nfc_tag} muss erstellt werden!",
+                    "action_needed": "setup_pin",
+                    "nfc_tag": nfc_tag
+                }
+            elif check_res == True and check_pin == True:
+                return {
+                    "status": "needs_login",
+                    "message": f"Bitte melden Sie sich mit Ihrer PIN an!",
+                    "action_needed": "login",
+                    "nfc_tag": nfc_tag
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Unbekannter Fehler: {check_res}",
+                    "action_needed": "none",
+                    "nfc_tag": nfc_tag
+                }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Fehler bei der Anfrage: {str(e)}",
+                "action_needed": "none",
+                "nfc_tag": nfc_tag
+            }
+
+    def web_signup(self, nfc_tag, pin, pin_confirm):
+        """Web-UI PIN-Erstellung - KORRIGIERTE VERSION"""
+        print(f"🔧 web_signup aufgerufen: Tag={nfc_tag}, PIN={pin}, Confirm={pin_confirm}")
+        
+        if len(pin) != 4 or not pin.isdigit():
+            print("❌ PIN Format ungültig")
+            return {
+                "success": False,
+                "message": "PIN muss genau 4 Ziffern haben!"
+            }
+        
+        if pin != pin_confirm:
+            print("❌ PIN Bestätigung stimmt nicht überein")
+            return {
+                "success": False,
+                "message": "PINs stimmen nicht überein!"
+            }
+        
+        try:
+            print(f"📡 Rufe USC.fetch_signup({nfc_tag}, {pin}) auf...")
+            success = self.USC.fetch_signup(nfc_tag, pin)
+            print(f"✅ USC.fetch_signup Ergebnis: {success}")
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": "PIN erfolgreich erstellt!"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "Fehler beim Erstellen der PIN!"
+                }
+        except Exception as e:
+            print(f"❌ Exception in web_signup: {e}")
+            import traceback
+            print(f"🔍 Full Traceback: {traceback.format_exc()}")
+            return {
+                "success": False,
+                "message": f"Fehler beim Erstellen der PIN: {str(e)}"
+            }
+
+    def web_signin(self, nfc_tag, pin):
+        """Web-UI Login - KORRIGIERTE VERSION"""
+        if len(pin) != 4 or not pin.isdigit():
+            return {
+                "success": False,
+                "message": "PIN muss genau 4 Ziffern haben!"
+            }
+        
+        try:
+            print(f"🔑 Web-Login für Tag: {nfc_tag} mit PIN: {pin}")
+            success, user_id, name = self.USC.fetch_signin(nfc_tag, pin)
+            print(f"🔍 Login-Ergebnis: success={success}, user_id={user_id}, name={name}")
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": f"Willkommen, {name}!",
+                    "user_id": user_id,
+                    "name": name
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "Falsche PIN oder Login-Fehler!"
+                }
+        except Exception as e:
+            print(f"❌ Web-Login Fehler: {e}")
+            return {
+                "success": False,
+                "message": f"Fehler beim Login: {str(e)}"
+            }

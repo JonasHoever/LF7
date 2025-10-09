@@ -10,6 +10,10 @@
     <div class="container">
         <h1>🔖 NFC Client Web Interface</h1>
         
+        <div class="navigation">
+            <a href="/register" class="nav-link">🆕 NFC-Tag registrieren</a>
+        </div>
+        
         <div class="nfc-scanner">
             <h3>🔖 NFC Scanner</h3>
             <p>Lege einen NFC-Tag auf den Arduino-Scanner auf...</p>
@@ -27,34 +31,75 @@
             </div>
         </div>
 
-        {% if result %}
-        <div class="result {{ 'success' if result.success else 'error' }}">
-            <h3>{{ '✅ Erfolg' if result.success else '❌ Fehler' }}</h3>
-            <p><strong>{{ result.message }}</strong></p>
+        {% if result and result.result %}
+        <div class="result {{ 'success' if result.result.status != 'error' else 'error' }}">
+            <h3>📡 NFC-Scan Ergebnis</h3>
+            <p><strong>{{ result.result.message }}</strong></p>
             <small>Gescannt um: {{ result.timestamp }}</small>
             
-            {% if result.success %}
             <div class="nfc-info">
                 <div class="nfc-detail">
                     <strong>Tag ID:</strong><br>
                     <code>{{ result.nfc_tag }}</code>
                 </div>
                 <div class="nfc-detail">
-                    <strong>Tag existiert:</strong><br>
-                    {{ '✅ Ja' if result.exists else '❌ Nein' }}
+                    <strong>Status:</strong><br>
+                    {% if result.result.status == 'not_registered' %}
+                        ❌ Nicht registriert
+                    {% elif result.result.status == 'needs_pin_setup' %}
+                        🔓 PIN erforderlich
+                    {% elif result.result.status == 'needs_login' %}
+                        🔐 Anmeldung erforderlich
+                    {% else %}
+                        ⚠️ {{ result.result.status }}
+                    {% endif %}
                 </div>
                 <div class="nfc-detail">
-                    <strong>PIN gesetzt:</strong><br>
-                    {{ '🔐 Ja' if result.pin_set else '🔓 Nein' }}
+                    <strong>Aktion:</strong><br>
+                    {% if result.result.action_needed == 'register' %}
+                        <button onclick="redirectToRegister('{{ result.nfc_tag }}')">🆕 Registrieren</button>
+                    {% elif result.result.action_needed == 'pin_setup' %}
+                        <button onclick="showPinSetup('{{ result.nfc_tag }}')">🔐 PIN erstellen</button>
+                    {% elif result.result.action_needed == 'pin_login' %}
+                        <button onclick="showPinLogin('{{ result.nfc_tag }}')">🔑 Anmelden</button>
+                    {% else %}
+                        Keine weitere Aktion erforderlich
+                    {% endif %}
                 </div>
             </div>
-            {% endif %}
-            
-            {% if result.error %}
-            <p><strong>Fehlerdetails:</strong> {{ result.error }}</p>
-            {% endif %}
         </div>
         {% endif %}
+
+        <!-- PIN-Aktionen Modal -->
+        <div id="pin-actions" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 id="pin-action-title">PIN-Aktion</h3>
+                
+                <!-- PIN Setup -->
+                <div id="pin-setup" style="display: none;">
+                    <div class="form-group">
+                        <label for="new-pin">Neue 4-stellige PIN:</label>
+                        <input type="password" id="new-pin" placeholder="0000" maxlength="4" pattern="[0-9]{4}">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-pin">PIN bestätigen:</label>
+                        <input type="password" id="confirm-pin" placeholder="0000" maxlength="4" pattern="[0-9]{4}">
+                    </div>
+                    <button onclick="setupPin()" class="btn-primary">PIN erstellen</button>
+                </div>
+                
+                <!-- PIN Login -->
+                <div id="pin-login" style="display: none;">
+                    <div class="form-group">
+                        <label for="login-pin">Ihre 4-stellige PIN:</label>
+                        <input type="password" id="login-pin" placeholder="0000" maxlength="4" pattern="[0-9]{4}">
+                    </div>
+                    <button onclick="loginPin()" class="btn-primary">Anmelden</button>
+                </div>
+                
+                <button onclick="cancelPinAction()" class="btn-secondary">Abbrechen</button>
+            </div>
+        </div>
 
         <div class="status">
             <h4>📡 Client Status</h4>
@@ -63,5 +108,163 @@
             <p><strong>Server Verbindung:</strong> Bereit</p>
         </div>
     </div>
+
+    <script>
+        let currentNfcTag = null;
+
+        function showPinSetup(nfcTag) {
+            currentNfcTag = nfcTag;
+            document.getElementById('pin-actions').style.display = 'block';
+            document.getElementById('pin-action-title').textContent = `PIN für Tag ${nfcTag} erstellen`;
+            document.getElementById('pin-setup').style.display = 'block';
+            document.getElementById('pin-login').style.display = 'none';
+            document.getElementById('new-pin').focus();
+        }
+
+        function showPinLogin(nfcTag) {
+            currentNfcTag = nfcTag;
+            document.getElementById('pin-actions').style.display = 'block';
+            document.getElementById('pin-action-title').textContent = `Anmelden mit Tag ${nfcTag}`;
+            document.getElementById('pin-setup').style.display = 'none';
+            document.getElementById('pin-login').style.display = 'block';
+            document.getElementById('login-pin').focus();
+        }
+
+        function setupPin() {
+            const pin = document.getElementById('new-pin').value;
+            const confirmPin = document.getElementById('confirm-pin').value;
+            
+            if (pin.length !== 4 || !pin.match(/^\d{4}$/)) {
+                alert('PIN muss genau 4 Ziffern haben!');
+                return;
+            }
+            
+            if (pin !== confirmPin) {
+                alert('PINs stimmen nicht überein!');
+                return;
+            }
+            
+            console.log('🔐 Sending PIN setup request:', {nfc_tag: currentNfcTag, pin: pin});
+            
+            fetch('/api/nfc/signup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    nfc_tag: currentNfcTag,
+                    pin: pin,
+                    pin_confirm: confirmPin
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('📤 PIN setup response:', data);
+                alert(data.message);
+                if (data.success) {
+                    // Aktion erfolgreich - entferne Tag aus UI
+                    clearCurrentScanResult();
+                    cancelPinAction();
+                } else {
+                    // Fehler - behalte Tag in UI für erneuten Versuch
+                    console.log('PIN setup failed, keeping tag visible');
+                }
+            })
+            .catch(error => {
+                console.error('❌ PIN setup error:', error);
+                alert('Fehler bei der Kommunikation: ' + error);
+            });
+        }
+
+        function loginPin() {
+            const pin = document.getElementById('login-pin').value;
+            
+            if (pin.length !== 4 || !pin.match(/^\d{4}$/)) {
+                alert('PIN muss genau 4 Ziffern haben!');
+                return;
+            }
+            
+            fetch('/api/nfc/signin', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    nfc_tag: currentNfcTag,
+                    pin: pin
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                if (data.success) {
+                    // Login erfolgreich - entferne Tag aus UI
+                    clearCurrentScanResult();
+                    cancelPinAction();
+                } else {
+                    // Login fehlgeschlagen - behalte Tag für erneuten Versuch
+                    console.log('Login failed, keeping tag visible');
+                }
+            })
+            .catch(error => {
+                alert('Fehler bei der Kommunikation: ' + error);
+            });
+        }
+
+        function cancelPinAction() {
+            document.getElementById('pin-actions').style.display = 'none';
+            document.getElementById('new-pin').value = '';
+            document.getElementById('confirm-pin').value = '';
+            document.getElementById('login-pin').value = '';
+            currentNfcTag = null;
+        }
+
+        function clearCurrentScanResult() {
+            // Entferne das aktuelle Scan-Ergebnis aus der UI
+            const resultDiv = document.querySelector('.result');
+            if (resultDiv) {
+                resultDiv.style.display = 'none';
+                setTimeout(() => {
+                    resultDiv.remove();
+                }, 300);
+            }
+            
+            // Setze Timestamp zurück damit neue Scans wieder angezeigt werden
+            lastKnownTimestamp = '';
+            
+            console.log('✅ Scan result cleared from UI');
+        }
+
+        function redirectToRegister(nfcTag) {
+            // Speichere Tag-ID für Registrierungsseite
+            sessionStorage.setItem('pendingNfcTag', nfcTag);
+            window.location.href = '/register';
+        }
+
+        let lastKnownTimestamp = '{{ result.timestamp if result else "" }}';
+        
+        // Auto-refresh für neue Scan-Ergebnisse
+        setInterval(() => {
+            fetch('/api/last-scan')
+            .then(response => response.json())
+            .then(data => {
+                console.log('🔄 Checking for new scans:', data);
+                if (data && data.nfc_tag && data.timestamp !== lastKnownTimestamp) {
+                    console.log('🆕 New scan detected! Reloading...');
+                    lastKnownTimestamp = data.timestamp;
+                    location.reload();
+                    // Nach dem Reload zur Ergebnis-Sektion scrollen
+                    setTimeout(() => {
+                        const resultElement = document.querySelector('.result');
+                        if (resultElement) {
+                            resultElement.scrollIntoView({ 
+                                behavior: 'smooth',
+                                block: 'center'
+                            });
+                        }
+                    }, 100);
+                } else {
+                    console.log('⏳ No new scans');
+                }
+            })
+            .catch(error => console.log('❌ Refresh check failed:', error));
+        }, 1000); // Häufigere Checks für schnellere Reaktion
+    </script>
 </body>
 </html>
