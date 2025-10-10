@@ -1,5 +1,6 @@
 from src import script
 from flask import Flask, jsonify, render_template, request, redirect, url_for
+from flask_socketio import SocketIO, emit
 import requests
 import serial
 import serial.tools.list_ports
@@ -7,6 +8,7 @@ import threading
 import time
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 usys = script.UserSystemClient()
 csfs = script.Client_Short_Function()  # Original für Terminal
@@ -170,12 +172,27 @@ def handle_nfc_request(nfc_tag):
 
 # Globale Variable für letztes Scan-Ergebnis (für Web-UI Anzeige)
 last_scan_result = None
+last_scanned_tag = None
 
 def handle_web_nfc_request(nfc_tag):
     """Verarbeitet Arduino NFC-Scanner Daten für Web-UI Anzeige"""
-    global last_scan_result
+    global last_scan_result, last_scanned_tag
     try:
         print(f"🌐 Web-Request für Tag: {nfc_tag}")
+        
+        # Speichere den zuletzt gescannten Tag
+        last_scanned_tag = nfc_tag
+        
+        # Sende WebSocket-Nachricht an alle verbundenen Clients
+        try:
+            socketio.emit('nfc_scanned', {
+                'type': 'nfc_scanned',
+                'tag_id': nfc_tag,
+                'timestamp': time.strftime('%H:%M:%S')
+            })
+            print(f"📡 WebSocket-Nachricht gesendet für Tag: {nfc_tag}")
+        except Exception as ws_error:
+            print(f"⚠️  WebSocket-Fehler: {ws_error}")
         
         # DEBUG: Prüfe was csfs2.request() zurückgibt
         print(f"🔧 DEBUG: Rufe csfs2.request('{nfc_tag}') auf...")
@@ -255,8 +272,6 @@ def register_page():
     status = get_arduino_status()
     return render_template('register.html', **status)
 
-# Entferne die manuelle Web-UI Route - nur Arduino-Scanner erlaubt
-
 @app.route('/nfc/request/<nfc_tag>')
 def api_request(nfc_tag):
     """API Route - Original beibehalten"""
@@ -297,6 +312,73 @@ def api_nfc_signin():
     
     result = csfs2.web_signin(nfc_tag, pin)
     return jsonify(result)
+
+@app.route('/api/nfc/request', methods=['POST'])
+def api_nfc_request():
+    """API für NFC-Tag Status Prüfung"""
+    data = request.get_json()
+    nfc_tag = data.get('nfc_tag')
+    
+    if not nfc_tag:
+        return jsonify({"exists": False, "pin_set": False})
+    
+    result = csfs2.web_request(nfc_tag)
+    print(f"🔍 web_request result: {result}")
+    
+    # Konvertiere das strukturierte Ergebnis zu exists/pin_set Format
+    if result["status"] == "not_registered":
+        response = {"exists": False, "pin_set": False}
+    elif result["status"] == "needs_pin_setup":
+        response = {"exists": True, "pin_set": False}
+    elif result["status"] == "needs_login":
+        response = {"exists": True, "pin_set": True}
+    else:
+        response = {"exists": False, "pin_set": False}
+    
+    print(f"🔍 Tag-Status: exists={response['exists']}, pin_set={response['pin_set']}")
+    return jsonify(response)
+
+@app.route('/api/user-info', methods=['POST'])
+def api_user_info():
+    """API für Benutzerinformationen"""
+    data = request.get_json()
+    nfc_tag = data.get('nfc_tag')
+    
+    if not nfc_tag:
+        return jsonify({"name": "Unknown", "surname": "User"})
+    
+    # Versuche Benutzerinformationen vom Server zu holen
+    try:
+        # Da der Server keine direkte User-Info Route hat, verwenden wir ein Mock
+        # In einer echten Implementierung sollte der Server eine solche Route haben
+        return jsonify({
+            "name": "User",
+            "surname": f"#{nfc_tag[-4:]}"  # Zeige letzten 4 Zeichen der Tag-ID
+        })
+    except Exception as e:
+        return jsonify({"name": "Unknown", "surname": "User"})
+
+@app.route('/api/nfc/last_scanned')
+def api_nfc_last_scanned():
+    """API Route um letzten gescannten NFC-Tag abzurufen"""
+    global last_scanned_tag
+    print(f"🌐 API /api/nfc/last_scanned aufgerufen")
+    print(f"📊 last_scanned_tag: {last_scanned_tag}")
+    
+    if last_scanned_tag:
+        response = {
+            "success": True,
+            "tag_id": last_scanned_tag,
+            "timestamp": time.strftime('%H:%M:%S')
+        }
+    else:
+        response = {
+            "success": False,
+            "message": "Noch kein Tag gescannt"
+        }
+    
+    print(f"📤 API Antwort: {response}")
+    return jsonify(response)
 
 @app.route('/api/nfc/register', methods=['POST'])
 def api_nfc_register():
@@ -340,6 +422,27 @@ def api_nfc_register():
             "success": False,
             "message": f"Verbindungsfehler: {str(e)}"
         })
+    
+@app.route("/welcome/<uid>/")
+def welcome_site(uid):
+    success, action = usys.worktime_script(uid)
+    return render_template('welcome.html', uid=uid, success=success, action=action)
+
+@app.route('/test/<name>/<int:alter>')
+def user_profile(name, alter):
+    """Beispiel-Route mit URL-Parametern"""
+    status = get_arduino_status()
+    return render_template('test.html', name=name, alter=alter, **status)
+
+# WebSocket Event Handler
+@socketio.on('connect')
+def handle_connect():
+    print('🔌 Client mit WebSocket verbunden')
+    emit('status', {'message': 'Verbunden mit NFC-Scanner'})
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('🔌 Client von WebSocket getrennt')
 
 if __name__ == '__main__':
     # Starte NFC-Scanner nur wenn Arduino verbunden ist
@@ -347,5 +450,6 @@ if __name__ == '__main__':
         threading.Thread(target=nfc_scanner_thread, daemon=True).start()
         print("🚀 NFC-Scanner Thread gestartet")
     
-    print("🌐 Web-UI startet auf http://localhost:80")
-    app.run(debug=True, host="0.0.0.0", port=80)
+    print("🌐 Web-UI startet auf http://localhost:5000")
+    print("📡 WebSocket verfügbar auf ws://localhost:5000/ws")
+    socketio.run(app, debug=True, host="0.0.0.0", port=80)

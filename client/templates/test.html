@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Benutzerprofil - {{ name }}</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .profile-card { 
+            border: 2px solid #333; 
+            padding: 20px; 
+            border-radius: 10px; 
+            max-width: 400px;
+            background-color: #f9f9f9;
+        }
+        .info { margin: 10px 0; }
+        .back-link { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Benutzerprofil</h1>
+    <p><a href="/">← Zurück zur Startseite</a></p>
+    
+    <div class="profile-card">
+        <h2>👤 Benutzerinformationen</h2>
+        
+        <div class="info">
+            <strong>Name:</strong> {{ name }}
+        </div>
+        
+        <div class="info">
+            <strong>Alter:</strong> {{ alter }} Jahre
+        </div>
+        
+        {% if zusatz_info %}
+        <div class="info">
+            <strong>Zusatzinfo:</strong> {{ zusatz_info }}
+        </div>
+        {% endif %}
+        
+        <div class="info">
+            <strong>Status:</strong> 
+            {% if alter >= 18 %}
+                🟢 Erwachsen
+            {% else %}
+                🔵 Minderjährig
+            {% endif %}
+        </div>
+        
+        <div class="info">
+            <strong>Kategorie:</strong>
+            {% if alter < 13 %}
+                👶 Kind
+            {% elif alter < 18 %}
+                👦 Jugendlicher
+            {% elif alter < 65 %}
+                👨 Erwachsener
+            {% else %}
+                👴 Senior
+            {% endif %}
+        </div>
+        
+        <!-- Arduino Status anzeigen -->
+        <hr>
+        <div class="info">
+            <strong>Arduino:</strong> {{ arduino_status }}
+        </div>
+        <div class="info">
+            <strong>NFC-Scanner:</strong> {{ nfc_status }}
+        </div>
+    </div>
+    
+    <div class="back-link">
+        <h3>📋 Beispiel-URLs zum Testen:</h3>
+        <ul>
+            <li><a href="/user/Max/25">Max, 25 Jahre</a></li>
+            <li><a href="/user/Anna/17">Anna, 17 Jahre</a></li>
+            <li><a href="/user/Fritz/72">Fritz, 72 Jahre</a></li>
+            <li><a href="/user/Lisa/30/Entwicklerin">Lisa, 30 Jahre, Entwicklerin</a></li>
+        </ul>
+    </div>
+</body>
+</html>

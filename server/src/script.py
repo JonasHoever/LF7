@@ -100,6 +100,8 @@ class WorkTimeSystem():
                 raise Exception("Keine aktive Session gefunden!")
             else:
                 latest_session = sessions_today[0][0]
+                result = self.sql.query("SELECT * FROM user_data WHERE user_id = %s AND session_id = %s", (uid, latest_session))
+                print(result)
                 return True, latest_session
         except Exception as e:
             print(e)
@@ -120,6 +122,7 @@ class WorkTimeSystem():
         sql_current_timestamp = current_timestamp.strftime("%Y-%m-%d %H:%M:%S")
         try:
             self.sql.insert_query("UPDATE user_data SET checkout_time = %s, status = 0 WHERE user_id = %s AND session_id = %s",(sql_current_timestamp, uid, session_id))
+            print(f"Ende Session für user_id={uid}, session_id={session_id}")
             return True
         except Exception as e:
             print(e)

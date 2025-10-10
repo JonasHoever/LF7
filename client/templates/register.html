@@ -1,301 +1,120 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>NFC Tag Registrierung</title>
+    <title>NFC Client - Registrierung</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>🆕 NFC-Tag Registrierung</h1>
-        
-        <div class="navigation">
-            <a href="/" class="nav-link">🏠 Zurück zur Hauptseite</a>
+    <h1>NFC-Tag Registrierung</h1>
+    <p><a href="/">← Zurück</a></p>
+    
+    <form id="register-form">
+        <div>
+            <label for="nfc_tag">NFC-Tag ID:</label>
+            <input type="text" id="nfc_tag" name="nfc_tag" required placeholder="Bitte NFC-Tag scannen...">
         </div>
         
-        <div class="nfc-scanner">
-            <h3>🔖 NFC Scanner</h3>
-            <p>Lege einen neuen NFC-Tag auf den Arduino-Scanner auf...</p>
-            <div class="scanner-status">
-                {% if nfc_status == '📡 Aktiv und bereit' %}
-                    <div class="scanner-active">
-                        <div class="pulse"></div>
-                        <strong>Scanner bereit - Warte auf neuen Tag...</strong>
-                    </div>
-                {% else %}
-                    <div class="scanner-inactive">
-                        <strong>{{ nfc_status }}</strong>
-                    </div>
-                {% endif %}
-            </div>
+        <div>
+            <label for="vorname">Vorname:</label>
+            <input type="text" id="vorname" name="vorname" required>
         </div>
-
-        <!-- Registrierung mit gescanntem Tag -->
-        <div id="registration-form" style="display: none;">
-            <div class="card">
-                <h3>📝 Benutzer-Registrierung</h3>
-                <p>Tag-ID: <code id="scanned-tag"></code></p>
-                
-                <div class="form-group">
-                    <label for="user-name">Vorname:</label>
-                    <input type="text" id="user-name" placeholder="Max" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="user-surname">Nachname:</label>
-                    <input type="text" id="user-surname" placeholder="Mustermann" required>
-                </div>
-                
-                <button onclick="registerUser()" class="btn-primary">👤 Benutzer registrieren</button>
-                <button onclick="cancelRegistration()" class="btn-secondary">Abbrechen</button>
-            </div>
+        
+        <div>
+            <label for="nachname">Nachname:</label>
+            <input type="text" id="nachname" name="nachname" required>
         </div>
-
-        <!-- Manuelle Eingabe (falls Arduino nicht verfügbar) -->
-        {% if nfc_status != '📡 Aktiv und bereit' %}
-        <div class="manual-registration">
-            <h3>✏️ Manuelle Registrierung</h3>
-            <p><em>Da der Arduino-Scanner nicht verfügbar ist, können Sie einen Tag manuell registrieren:</em></p>
-            
-            <div class="form-group">
-                <label for="manual-tag">NFC-Tag ID:</label>
-                <input type="text" id="manual-tag" placeholder="A1B2C3D4" pattern="[A-Fa-f0-9]+" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="manual-name">Vorname:</label>
-                <input type="text" id="manual-name" placeholder="Max" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="manual-surname">Nachname:</label>
-                <input type="text" id="manual-surname" placeholder="Mustermann" required>
-            </div>
-            
-            <button onclick="registerManually()" class="btn-primary">👤 Manuell registrieren</button>
-        </div>
-        {% endif %}
-
-        <!-- Ergebnis-Anzeige -->
-        <div id="result-display" style="display: none;">
-            <div id="result-content" class="result">
-                <!-- Dynamisch gefüllt -->
-            </div>
-        </div>
-
-        <div class="status">
-            <h4>📡 Client Status</h4>
-            <p><strong>Arduino Serial Port:</strong> {{ arduino_status }}</p>
-            <p><strong>NFC Scanner:</strong> {{ nfc_status }}</p>
-            <p><strong>Server Verbindung:</strong> Bereit</p>
-        </div>
-    </div>
+        
+        <button type="submit">Registrieren</button>
+    </form>
+    
+    <div id="message"></div>
 
     <script>
-        let currentNfcTag = null;
-        let lastTimestamp = null;
-
-        // Prüfe ob ein Tag von der Hauptseite weitergeleitet wurde
-        window.addEventListener('load', () => {
-            const pendingTag = sessionStorage.getItem('pendingNfcTag');
-            if (pendingTag) {
-                sessionStorage.removeItem('pendingNfcTag');
-                handleNewScan(pendingTag);
+        // WebSocket-Verbindung für automatisches NFC-Tag einfügen
+        let ws;
+        
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket('ws://localhost:5000/socket.io/?transport=websocket');
+                
+                ws.onopen = function(event) {
+                    console.log('WebSocket verbunden');
+                };
+                
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'nfc_scanned' && data.tag_id) {
+                        document.getElementById('nfc_tag').value = data.tag_id;
+                        console.log('NFC-Tag automatisch eingefügt:', data.tag_id);
+                    }
+                };
+                
+                ws.onclose = function(event) {
+                    console.log('WebSocket getrennt, versuche Reconnect in 3s...');
+                    setTimeout(connectWebSocket, 3000);
+                };
+                
+                ws.onerror = function(error) {
+                    console.log('WebSocket Fehler:', error);
+                };
+            } catch (error) {
+                console.log('WebSocket Verbindung fehlgeschlagen, versuche erneut in 3s...');
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+        
+        // Starte WebSocket-Verbindung beim Laden der Seite
+        window.addEventListener('load', connectWebSocket);
+        
+        // Polling-Alternative falls WebSocket nicht funktioniert
+        let lastTagCheck = '';
+        setInterval(async () => {
+            try {
+                const response = await fetch('/api/nfc/last_scanned');
+                const data = await response.json();
+                if (data.success && data.tag_id && data.tag_id !== lastTagCheck) {
+                    document.getElementById('nfc_tag').value = data.tag_id;
+                    lastTagCheck = data.tag_id;
+                    console.log('NFC-Tag via Polling eingefügt:', data.tag_id);
+                }
+            } catch (error) {
+                // Ignoriere Polling-Fehler
+            }
+        }, 1000);
+        
+        document.getElementById('register-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const formData = {
+                nfc_tag: document.getElementById('nfc_tag').value,
+                name: document.getElementById('vorname').value,
+                surname: document.getElementById('nachname').value,
+            };
+            
+            try {
+                const response = await fetch('/api/nfc/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                const messageDiv = document.getElementById('message');
+                
+                if (data.success) {
+                    messageDiv.innerHTML = `<div style="color: green;">${data.message}</div>`;
+                    document.getElementById('register-form').reset();
+                    lastTagCheck = ''; // Reset für nächsten Scan
+                } else {
+                    messageDiv.innerHTML = `<div style="color: red;">${data.message}</div>`;
+                }
+            } catch (error) {
+                const messageDiv = document.getElementById('message');
+                messageDiv.innerHTML = `<div style="color: red;">Fehler beim Registrieren: ${error.message}</div>`;
             }
         });
-
-        // Automatische Erkennung für neue Scans
-        setInterval(() => {
-            fetch('/api/last-scan')
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.nfc_tag && data.timestamp !== lastTimestamp) {
-                    lastTimestamp = data.timestamp;
-                    currentNfcTag = data.nfc_tag;
-                    
-                    // Prüfe Tag-Status vor Anzeige
-                    checkTagStatusAndShow(data.nfc_tag, data.result);
-                }
-            })
-            .catch(error => console.log('Scan check failed:', error));
-        }, 1000);
-
-        function checkTagStatusAndShow(nfcTag, result) {
-            if (result && result.status === 'not_registered') {
-                // Tag ist nicht registriert - kann registriert werden
-                showScannedTag(nfcTag);
-            } else if (result && (result.status === 'needs_pin_setup' || result.status === 'ready_for_login')) {
-                // Tag ist bereits registriert - zeige Info an
-                showAlreadyRegisteredTag(nfcTag, result);
-            } else {
-                // Unbekannter Status - zeige Tag trotzdem
-                showScannedTag(nfcTag);
-            }
-        }
-
-        function showAlreadyRegisteredTag(nfcTag, result) {
-            const display = document.getElementById('tag-display');
-            display.innerHTML = `
-                <div class="tag-info registered">
-                    <h4>🚫 Tag bereits registriert</h4>
-                    <p><strong>Tag ID:</strong> <code>${nfcTag}</code></p>
-                    <p><strong>Status:</strong> Bereits registriert</p>
-                    <div class="warning">
-                        ⚠️ Dieser Tag ist bereits registriert und kann nicht erneut registriert werden.
-                        <br>Verwenden Sie einen anderen Tag oder gehen Sie zur Hauptseite für Login/PIN-Setup.
-                    </div>
-                    <button onclick="clearTagDisplay()" class="btn-secondary">Neuen Tag scannen</button>
-                    <a href="/" class="btn-primary">🏠 Zur Hauptseite</a>
-                </div>
-            `;
-            display.style.display = 'block';
-            
-            // Deaktiviere Registrierungsformular
-            document.getElementById('registration-form').style.display = 'none';
-        }
-
-        function showScannedTag(nfcTag) {
-            const display = document.getElementById('tag-display');
-            display.innerHTML = `
-                <div class="tag-info available">
-                    <h4>✅ Tag verfügbar für Registrierung</h4>
-                    <p><strong>Tag ID:</strong> <code>${nfcTag}</code></p>
-                    <p><strong>Status:</strong> Nicht registriert</p>
-                    <div class="success">
-                        📋 Dieser Tag kann registriert werden. Füllen Sie das Formular aus.
-                    </div>
-                    <button onclick="clearTagDisplay()" class="btn-secondary">Neuen Tag scannen</button>
-                </div>
-            `;
-            display.style.display = 'block';
-            
-            // Zeige Registrierungsformular und setze aktuellen Tag
-            handleNewScan(nfcTag);
-        }
-
-        function clearTagDisplay() {
-            const display = document.getElementById('tag-display');
-            display.style.display = 'none';
-            display.innerHTML = '';
-            
-            // Verstecke auch das Registrierungsformular
-            cancelRegistration();
-        }
-
-        function handleNewScan(nfcTag) {
-            currentNfcTag = nfcTag;
-            document.getElementById('scanned-tag').textContent = nfcTag;
-            document.getElementById('registration-form').style.display = 'block';
-            document.getElementById('user-name').focus();
-            
-            // Scroll zur Registrierung
-            document.getElementById('registration-form').scrollIntoView({ 
-                behavior: 'smooth' 
-            });
-        }
-
-        function registerUser() {
-            const name = document.getElementById('user-name').value.trim();
-            const surname = document.getElementById('user-surname').value.trim();
-            
-            if (!name || !surname) {
-                alert('Bitte geben Sie Vor- und Nachname ein!');
-                return;
-            }
-            
-            if (!currentNfcTag) {
-                alert('Kein NFC-Tag gescannt!');
-                return;
-            }
-            
-            fetch('/api/nfc/register', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    nfc_tag: currentNfcTag,
-                    name: name,
-                    surname: surname
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                showResult(data);
-                if (data.success) {
-                    cancelRegistration();
-                }
-            })
-            .catch(error => {
-                showResult({
-                    success: false,
-                    message: 'Verbindungsfehler: ' + error
-                });
-            });
-        }
-
-        function registerManually() {
-            const tag = document.getElementById('manual-tag').value.trim().toUpperCase();
-            const name = document.getElementById('manual-name').value.trim();
-            const surname = document.getElementById('manual-surname').value.trim();
-            
-            if (!tag || !name || !surname) {
-                alert('Bitte füllen Sie alle Felder aus!');
-                return;
-            }
-            
-            if (!/^[A-F0-9]+$/.test(tag)) {
-                alert('NFC-Tag ID muss aus Hex-Zeichen bestehen (0-9, A-F)!');
-                return;
-            }
-            
-            fetch('/api/nfc/register', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    nfc_tag: tag,
-                    name: name,
-                    surname: surname
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                showResult(data);
-                if (data.success) {
-                    // Felder leeren
-                    document.getElementById('manual-tag').value = '';
-                    document.getElementById('manual-name').value = '';
-                    document.getElementById('manual-surname').value = '';
-                }
-            })
-            .catch(error => {
-                showResult({
-                    success: false,
-                    message: 'Verbindungsfehler: ' + error
-                });
-            });
-        }
-
-        function cancelRegistration() {
-            document.getElementById('registration-form').style.display = 'none';
-            document.getElementById('user-name').value = '';
-            document.getElementById('user-surname').value = '';
-            currentNfcTag = null;
-        }
-
-        function showResult(data) {
-            const resultDiv = document.getElementById('result-content');
-            resultDiv.className = `result ${data.success ? 'success' : 'error'}`;
-            resultDiv.innerHTML = `
-                <h3>${data.success ? '✅ Erfolg' : '❌ Fehler'}</h3>
-                <p><strong>${data.message}</strong></p>
-            `;
-            document.getElementById('result-display').style.display = 'block';
-            
-            // Nach 5 Sekunden ausblenden
-            setTimeout(() => {
-                document.getElementById('result-display').style.display = 'none';
-            }, 5000);
-        }
     </script>
 </body>
 </html>

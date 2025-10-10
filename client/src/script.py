@@ -119,6 +119,26 @@ class UserSystemClient():
             print(f"🔍 Traceback: {traceback.format_exc()}")
         
         return False, None, None
+    
+    def worktime_script(self, uid):
+        url = f"{self.server_url}/worktimesystem/sessions"
+        data = {"uid": uid}
+        try:
+            print(f"stempel versuch für: {uid}")
+            response = requests.post(url, json=data, timeout=10)
+            print(f"📨 Server-Antwort: Status={response.status_code}, Body={response.text}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                success = result.get("success", False)
+                action = result.get("action", None)
+                
+                print(f"🔍 Login-Ergebnis: success={success}, action={action}")
+                return success, action
+        except Exception as e:
+            print(f"❌ Login-Fehler: {e}")
+            import traceback
+            print(f"🔍 Traceback: {traceback.format_exc()}")
 
     
 class Client_Short_Function():
@@ -308,3 +328,5 @@ class Client_Short_Function2():
                 "success": False,
                 "message": f"Fehler beim Login: {str(e)}"
             }
+        
+
