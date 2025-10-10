@@ -122,24 +122,38 @@ class UserSystemClient():
     
     def worktime_script(self, uid):
         url = f"{self.server_url}/worktimesystem/sessions"
-        data = {"uid": uid}
+
+        # UID validieren und in int konvertieren (verhindert NULL in DB)
         try:
-            print(f"stempel versuch für: {uid}")
+            uid_int = int(uid)
+        except (TypeError, ValueError):
+            print(f"❌ Ungültige UID übergeben: {uid!r}")
+            return False, None
+
+        data = {"user_id": uid_int}
+        try:
+            print(f"🕒 Stempel-Versuch für UID={uid_int}")
             response = requests.post(url, json=data, timeout=10)
             print(f"📨 Server-Antwort: Status={response.status_code}, Body={response.text}")
-            
-            if response.status_code == 200:
+
+            if response.status_code != 200:
+                return False, None
+
+            # JSON sicher parsen
+            if response.headers.get("Content-Type", "").startswith("application/json"):
                 result = response.json()
-                success = result.get("success", False)
-                action = result.get("action", None)
-                
-                print(f"🔍 Login-Ergebnis: success={success}, action={action}")
-                return success, action
+            else:
+                result = {}
+
+            success = bool(result.get("success", False))
+            action = result.get("action")
+            print(f"🔍 Worktime-Ergebnis: success={success}, action={action}")
+            return success, action
         except Exception as e:
-            print(f"❌ Login-Fehler: {e}")
+            print(f"❌ Worktime-Fehler: {e}")
             import traceback
             print(f"🔍 Traceback: {traceback.format_exc()}")
-
+            return False, None
     
 class Client_Short_Function():
     def __init__(self):

@@ -16,7 +16,7 @@ class Sql():
     def insert_query(self, query, params=None):
         self.cursor.execute(query, params or ())
         self.conn.commit()
-        return self.cursor.fetchall()
+        return self.cursor.rowcount
     
     def query_to_list(self, query):
         self.cursor.execute(query)
@@ -96,23 +96,27 @@ class WorkTimeSystem():
     def check_status(self, uid):
         date_today = date.today()
         try:
-            sessions_today = self.sql.query("SELECT session_id, status FROM user_data WHERE date = %s AND status = 1 ORDER BY checkin_time DESC",(date_today,))
+            sessions_today = self.sql.query(
+                "SELECT session_id FROM user_data WHERE user_id = %s AND date = %s AND status = 1 ORDER BY checkin_time DESC",
+                (uid, date_today)
+            )
             if not sessions_today:
-                raise Exception("Keine aktive Session gefunden!")
-            else:
-                latest_session = sessions_today[0][0]
-                result = self.sql.query("SELECT * FROM user_data WHERE user_id = %s AND session_id = %s", (uid, latest_session))
-                print(result)
-                return True, latest_session
+                return False, None
+            latest_session = sessions_today[0][0]
+            return True, latest_session
         except Exception as e:
             print(e)
             return False, None
-        
+
     def start_session(self, uid):
         current_timestamp = datetime.now()
         sql_current_timestamp = current_timestamp.strftime("%Y-%m-%d %H:%M:%S")
         try:
-            self.sql.insert_query("insert into user_data (user_id, checkin_time) VALUES (%s, %s)",(uid,sql_current_timestamp))
+            print(f"Start session insert for uid={uid} at {sql_current_timestamp}")
+            self.sql.insert_query(
+                "INSERT INTO user_data (user_id, checkin_time, status) VALUES (%s, %s, 1)",
+                (uid, sql_current_timestamp)
+            )
             return True
         except Exception as e:
             print(e)

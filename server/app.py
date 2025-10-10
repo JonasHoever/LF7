@@ -56,11 +56,21 @@ def signup_nfc():
 
 @app.route('/worktimesystem/sessions', methods=['POST'])
 def sessions():
-    data = request.get_json()
-    user_id = data.get('user_id', None)
+    data = request.get_json(silent=True) or {}
+    print(f"POST /worktimesystem/sessions payload={data}")
+    user_id = data.get('user_id')
+
+    if user_id in (None, "", "null"):
+        return jsonify({"success": False, "action": None, "message": "user_id fehlt"}), 400
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "action": None, "message": "user_id muss int sein"}), 400
+
     session_check = tsys.check_status(user_id)
     session_id = session_check[1] if session_check[1] is not None else None
-    if session_check[0] == False:
+
+    if session_check[0] is False:
         try:
             success = tsys.start_session(user_id)
             action = "started"
@@ -68,7 +78,7 @@ def sessions():
             print(e)
             success = False
             action = "failure by starting session"
-    elif session_check[0] == True:
+    elif session_check[0] is True:
         try:
             success = tsys.end_session(user_id, session_id)
             action = "stopped"
@@ -79,8 +89,8 @@ def sessions():
     else:
         success = False
         action = None
-    return jsonify({"success": success, "action": action})
 
+    return jsonify({"success": success, "action": action})
 if __name__ == '__main__':
     threading.Thread(target=end_all_sessions, daemon=True).start()
     app.run(host="0.0.0.0",port=4001, debug=True)
