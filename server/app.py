@@ -78,7 +78,9 @@ def sessions():
 
     session_check = tsys.check_status(user_id)
     session_id = session_check[1] if session_check[1] is not None else None
-
+    print(session_check)
+    print(session_id)
+    print("step1")
     if session_check[0] is False:
         try:
             success, start_time = tsys.start_session(user_id)

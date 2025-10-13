@@ -130,14 +130,18 @@ class WorkTimeSystem():
             return False
         
     def end_session(self, uid, session_id):
+        print("versuche ende session")
         current_timestamp = datetime.now()
         sql_current_timestamp = current_timestamp.strftime("%Y-%m-%d %H:%M:%S")
         try:
+            print("starte versuch!")
             start_time_result = self.sql.query("SELECT checkin_time from user_data where session_id = %s", (session_id,))
             if start_time_result and start_time_result[0][0]:
+                print("if gestartet!")
                 start_time = start_time_result[0][0]  # datetime-Objekt
                 diff = current_timestamp - start_time  # timedelta-Objekt
                 session_duration = diff.total_seconds()
+                print("mache insert query!")
                 self.sql.insert_query(
                     "UPDATE user_data SET checkout_time = %s, status = 0, session_duration = %s WHERE user_id = %s AND session_id = %s",
                     (sql_current_timestamp, session_duration, uid, session_id)
