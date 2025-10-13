@@ -78,19 +78,16 @@ def sessions():
 
     session_check = tsys.check_status(user_id)
     session_id = session_check[1] if session_check[1] is not None else None
-    print(session_check)
-    print(session_id)
-    print("step1")
-    if session_check[0] is False:
+    if session_check[0] is True:
         try:
-            success, start_time = tsys.start_session(user_id)
-            action = "started"
-            end_time = None
-            diff = None
+            success, start_time, end_time, diff = tsys.end_session(user_id, session_id)
+            action = "stopped"
+            if diff is not None:
+                diff = diff.total_seconds()  # oder: str(diff)
         except Exception as e:
             print(e)
             success = False
-            action = "failure by starting session"
+            action = "failure by stopping session"
             start_time = None
             end_time = None
             diff = None
