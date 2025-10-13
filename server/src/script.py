@@ -88,7 +88,14 @@ class UserSystem():
             print(e)
             print(f"Pin für {nfc_tag} abgelehnt!")
             return False, None, None
-            
+        
+    def get_name_by_id(self, uid):
+            result = self.sql.query("SELECT name, surname FROM users where id = %s",(uid,))
+            if result:
+                name, surname = result[0]
+                return name, surname
+            else:
+                return None, None 
 class WorkTimeSystem():
     def __init__(self):
         self.sql = Sql()
@@ -117,7 +124,7 @@ class WorkTimeSystem():
                 "INSERT INTO user_data (user_id, checkin_time, status) VALUES (%s, %s, 1)",
                 (uid, sql_current_timestamp)
             )
-            return True
+            return True, sql_current_timestamp
         except Exception as e:
             print(e)
             return False
@@ -126,9 +133,20 @@ class WorkTimeSystem():
         current_timestamp = datetime.now()
         sql_current_timestamp = current_timestamp.strftime("%Y-%m-%d %H:%M:%S")
         try:
-            self.sql.insert_query("UPDATE user_data SET checkout_time = %s, status = 0 WHERE user_id = %s AND session_id = %s",(sql_current_timestamp, uid, session_id))
+            start_time_result = self.sql.query("SELECT checkin_time from user_data where session_id = %s", (session_id,))
+            if start_time_result and start_time_result[0][0]:
+                start_time = start_time_result[0][0]  # Das ist ein datetime-Objekt
+                diff = current_timestamp - start_time  # timedelta-Objekt
+            else:
+                start_time = None
+                diff = None
+
+            self.sql.insert_query(
+                "UPDATE user_data SET checkout_time = %s, status = 0, session_duration = %s WHERE user_id = %s AND session_id = %s",
+                (sql_current_timestamp, diff, uid, session_id)
+            )
             print(f"Ende Session für user_id={uid}, session_id={session_id}")
-            return True
+            return True, start_time, sql_current_timestamp, diff
         except Exception as e:
             print(e)
             return False

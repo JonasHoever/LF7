@@ -6,7 +6,7 @@ import serial
 import serial.tools.list_ports
 import threading
 import time
-
+from datetime import datetime as dt
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -425,8 +425,13 @@ def api_nfc_register():
     
 @app.route("/welcome/<uid>/")
 def welcome_site(uid):
-    success, action = usys.worktime_script(uid)
-    return render_template('welcome.html', uid=uid, success=success, action=action)
+    success, action, start_time, end_time, diff = usys.worktime_script(uid)
+    if success == True and action == "started":
+        return render_template('session_started.html', name_full="tester test", start_time=start_time)
+    elif success == True and action == "stopped":
+        return render_template('session_stopped.html', name)
+    else:
+        return render_template('welcome.html', uid=uid, success=success, action=action)
 
 @app.route('/test/<name>/<int:alter>')
 def user_profile(name, alter):

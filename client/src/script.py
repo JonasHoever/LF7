@@ -123,7 +123,6 @@ class UserSystemClient():
     def worktime_script(self, uid):
         url = f"{self.server_url}/worktimesystem/sessions"
 
-        # UID validieren und in int konvertieren (verhindert NULL in DB)
         try:
             uid_int = int(uid)
         except (TypeError, ValueError):
@@ -146,9 +145,12 @@ class UserSystemClient():
                 result = {}
 
             success = bool(result.get("success", False))
-            action = result.get("action")
+            action = result.get("action", None)
+            start_time = result.get("start_time", None)
+            end_time = result.get("end_time", None)
+            diff = result.get("diff", None)
             print(f"🔍 Worktime-Ergebnis: success={success}, action={action}")
-            return success, action
+            return success, action, start_time, end_time, diff
         except Exception as e:
             print(f"❌ Worktime-Fehler: {e}")
             import traceback
