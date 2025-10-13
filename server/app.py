@@ -59,6 +59,12 @@ def get_name_by_id(uid):
     return jsonify({"name":name, "surname":surname})
 @app.route('/worktimesystem/sessions', methods=['POST'])
 def sessions():
+    start_time = None
+    end_time = None
+    diff = None
+    success = False
+    action = None
+    
     data = request.get_json(silent=True) or {}
     print(f"POST /worktimesystem/sessions payload={data}")
     user_id = data.get('user_id')
@@ -83,6 +89,9 @@ def sessions():
             print(e)
             success = False
             action = "failure by starting session"
+            start_time = None
+            end_time = None
+            diff = None
     elif session_check[0] is True:
         try:
             success, start_time, end_time, diff = tsys.end_session(user_id, session_id)
@@ -91,15 +100,18 @@ def sessions():
             print(e)
             success = False
             action = "failure by stopping session"
-    elif success == False:
-        start_time = None
-        end_time = None
-        diff = None
+            start_time = None
+            end_time = None
+            diff = None
     else:
         success = False
         action = None
+        start_time = None
+        end_time = None
+        diff = None
 
     return jsonify({"success": success, "action": action, "start_time": start_time ,"end_time": end_time, "diff": diff})
+
 if __name__ == '__main__':
     threading.Thread(target=end_all_sessions, daemon=True).start()
     app.run(host="0.0.0.0",port=4001, debug=True)

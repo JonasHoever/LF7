@@ -120,6 +120,18 @@ class UserSystemClient():
         
         return False, None, None
     
+    def get_name_by_id(self, uid):
+        url = f"{self.server_url}/get/name/by/id/{uid}"
+        try:
+            response = requests.get(url, timeout=10)
+            result = response.json()
+            name = result.get("name", None)
+            surname = result.get("surname", None)
+            return name, surname
+        except Exception as e:
+            print(e)
+            return None, None
+
     def worktime_script(self, uid):
         url = f"{self.server_url}/worktimesystem/sessions"
 
@@ -127,7 +139,7 @@ class UserSystemClient():
             uid_int = int(uid)
         except (TypeError, ValueError):
             print(f"❌ Ungültige UID übergeben: {uid!r}")
-            return False, None
+            return False, None, None, None, None
 
         data = {"user_id": uid_int}
         try:
@@ -136,7 +148,7 @@ class UserSystemClient():
             print(f"📨 Server-Antwort: Status={response.status_code}, Body={response.text}")
 
             if response.status_code != 200:
-                return False, None
+                return False, None, None, None, None
 
             # JSON sicher parsen
             if response.headers.get("Content-Type", "").startswith("application/json"):
@@ -155,7 +167,7 @@ class UserSystemClient():
             print(f"❌ Worktime-Fehler: {e}")
             import traceback
             print(f"🔍 Traceback: {traceback.format_exc()}")
-            return False, None
+            return False, None, None, None, None
     
 class Client_Short_Function():
     def __init__(self):

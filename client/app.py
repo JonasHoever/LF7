@@ -426,10 +426,12 @@ def api_nfc_register():
 @app.route("/welcome/<uid>/")
 def welcome_site(uid):
     success, action, start_time, end_time, diff = usys.worktime_script(uid)
+    name, surname = usys.get_name_by_id(uid)
+    name_full = (name or "")+" "+(surname or "")
     if success == True and action == "started":
-        return render_template('session_started.html', name_full="tester test", start_time=start_time)
+        return render_template('session_started.html', name_full=name_full, start_time=start_time)
     elif success == True and action == "stopped":
-        return render_template('session_stopped.html', name)
+        return render_template('session_stopped.html', name_full=name_full, start_time=start_time, end_time=end_time, diff=diff)
     else:
         return render_template('welcome.html', uid=uid, success=success, action=action)
 

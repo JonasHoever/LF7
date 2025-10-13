@@ -135,21 +135,24 @@ class WorkTimeSystem():
         try:
             start_time_result = self.sql.query("SELECT checkin_time from user_data where session_id = %s", (session_id,))
             if start_time_result and start_time_result[0][0]:
-                start_time = start_time_result[0][0]  # Das ist ein datetime-Objekt
+                start_time = start_time_result[0][0]  # datetime-Objekt
                 diff = current_timestamp - start_time  # timedelta-Objekt
+                # Dauer als Sekunden speichern (empfohlen)
+                session_duration = diff.total_seconds()
             else:
                 start_time = None
                 diff = None
+                session_duration = None
 
             self.sql.insert_query(
                 "UPDATE user_data SET checkout_time = %s, status = 0, session_duration = %s WHERE user_id = %s AND session_id = %s",
-                (sql_current_timestamp, diff, uid, session_id)
+                (sql_current_timestamp, session_duration, uid, session_id)
             )
             print(f"Ende Session für user_id={uid}, session_id={session_id}")
             return True, start_time, sql_current_timestamp, diff
         except Exception as e:
             print(e)
-            return False
+            return False, None, None, None
 
     def end_all_session(self, target_time_str):
         while True:
