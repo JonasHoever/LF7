@@ -78,22 +78,23 @@ def sessions():
 
     session_check = tsys.check_status(user_id)
     session_id = session_check[1] if session_check[1] is not None else None
-    if session_check[0] is True:
+    if session_check[0] is False:
         try:
-            success, start_time, end_time, diff = tsys.end_session(user_id, session_id)
-            action = "stopped"
-            if diff is not None:
-                diff = diff.total_seconds()  # oder: str(diff)
+            success, start_time = tsys.start_session(user_id)
+            action = "started"
+            end_time = None
+            diff = None
         except Exception as e:
             print(e)
             success = False
-            action = "failure by stopping session"
+            action = "failure by starting session"
             start_time = None
             end_time = None
             diff = None
     elif session_check[0] is True:
         try:
             success, start_time, end_time, diff = tsys.end_session(user_id, session_id)
+            diff = diff.total_seconds()  # oder: str(diff)
             action = "stopped"
         except Exception as e:
             print(e)
