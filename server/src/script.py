@@ -137,19 +137,16 @@ class WorkTimeSystem():
             if start_time_result and start_time_result[0][0]:
                 start_time = start_time_result[0][0]  # datetime-Objekt
                 diff = current_timestamp - start_time  # timedelta-Objekt
-                # Dauer als Sekunden speichern (empfohlen)
                 session_duration = diff.total_seconds()
+                self.sql.insert_query(
+                    "UPDATE user_data SET checkout_time = %s, status = 0, session_duration = %s WHERE user_id = %s AND session_id = %s",
+                    (sql_current_timestamp, session_duration, uid, session_id)
+                )
+                print(f"Ende Session für user_id={uid}, session_id={session_id}")
+                return True, start_time, sql_current_timestamp, diff
             else:
-                start_time = None
-                diff = None
-                session_duration = None
-
-            self.sql.insert_query(
-                "UPDATE user_data SET checkout_time = %s, status = 0, session_duration = %s WHERE user_id = %s AND session_id = %s",
-                (sql_current_timestamp, session_duration, uid, session_id)
-            )
-            print(f"Ende Session für user_id={uid}, session_id={session_id}")
-            return True, start_time, sql_current_timestamp, diff
+                print(f"Keine aktive Session gefunden für user_id={uid}, session_id={session_id}")
+                return False, None, None, None
         except Exception as e:
             print(e)
             return False, None, None, None
