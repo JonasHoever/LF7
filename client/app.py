@@ -7,6 +7,10 @@ import serial.tools.list_ports
 import threading
 import time
 from datetime import datetime as dt
+from cryptography.fernet import Fernet
+import random
+from base64 import urlsafe_b64encode, urlsafe_b64decode
+
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -422,9 +426,23 @@ def api_nfc_register():
             "success": False,
             "message": f"Verbindungsfehler: {str(e)}"
         })
-    
-@app.route("/welcome/<uid>/")
-def welcome_site(uid):
+
+@app.route('/api/crypt/uid/<uid>')
+def crypt_uid(uid):
+    key = Fernet.generate_key()
+    cipher = Fernet(key)
+    token = cipher.encrypt(uid.encode())
+    # Serialisiere für JSON
+    return jsonify({
+        "key": key.decode(), 
+        "token": urlsafe_b64encode(token).decode()
+    })
+
+@app.route("/welcome/<string:token>/<string:key>")
+def welcome_site(token, key):
+    token_bytes = urlsafe_b64decode(token) 
+    cipher = Fernet(key.encode())            
+    uid = cipher.decrypt(token_bytes).decode()
     success, action, start_time, end_time, diff = usys.worktime_script(uid)
     name, surname = usys.get_name_by_id(uid)
     name_full = (name or "")+" "+(surname or "")
@@ -440,6 +458,10 @@ def user_profile(name, alter):
     """Beispiel-Route mit URL-Parametern"""
     status = get_arduino_status()
     return render_template('test.html', name=name, alter=alter, **status)
+
+@app.route('/login/')
+def login():
+    return render_template('login.html')
 
 # WebSocket Event Handler
 @socketio.on('connect')

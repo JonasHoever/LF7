@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NFC Client (manuelle Tag-Eingabe)</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>NFC Client</h1>
+    <p><a href="/register">Registrieren</a></p>
+
+    <h2>Tag-ID und PIN eingeben</h2>
+    <form id="login-form">
+        <label for="manual-tag">Tag-ID:</label><br>
+        <input type="text" id="manual-tag" maxlength="20" placeholder="Tag-ID" style="font-size:18px; padding:5px;" required><br><br>
+        <label for="pin">PIN (4 Ziffern):</label><br>
+        <input type="password" id="pin" maxlength="4" placeholder="PIN" style="font-size:18px; padding:5px;" required><br><br>
+        <label for="pin-confirm">PIN bestätigen:</label><br>
+        <input type="password" id="pin-confirm" maxlength="4" placeholder="PIN bestätigen" style="font-size:18px; padding:5px;" required><br><br>
+        <button type="submit" style="font-size:16px; padding:10px;">Anmelden</button>
+    </form>
+    <div id="login-message"></div>
+
+    <script>
+    document.getElementById('login-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const tagid = document.getElementById('manual-tag').value.trim();
+        const pin = document.getElementById('pin').value.trim();
+        const pinConfirm = document.getElementById('pin-confirm').value.trim();
+
+        if (!tagid) {
+            document.getElementById('login-message').innerText = "Bitte Tag-ID eingeben!";
+            return;
+        }
+        if (!pin || pin.length !== 4) {
+            document.getElementById('login-message').innerText = "PIN muss genau 4 Ziffern haben!";
+            return;
+        }
+        if (pin !== pinConfirm) {
+            document.getElementById('login-message').innerText = "PINs stimmen nicht überein!";
+            return;
+        }
+
+        fetch('/api/nfc/signin', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({nfc_tag: tagid, pin: pin, pin_confirm: pinConfirm})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('login-message').innerText = "Erfolgreich angemeldet! UID: " + data.user_id;
+                // Optional: Weiterleitung
+                // window.location.href = "/welcome/" + data.user_id + "/";
+            } else {
+                document.getElementById('login-message').innerText = "Fehler: " + data.message;
+            }
+        })
+        .catch(error => {
+            document.getElementById('login-message').innerText = "Serverfehler: " + error.message;
+        });
+    });
+    </script>
+</body>
+</html>

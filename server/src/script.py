@@ -155,6 +155,9 @@ class WorkTimeSystem():
             print(e)
             return False, None, None, None
 
+    def all_sessions_by_id(self, uid):
+        self.sql.query_to_list("SELECT session_id, checkin_time, checkout_time, data, session_duration FROM user_data where user_id = %s", (uid,))
+
     def end_all_session(self, target_time_str):
         while True:
             now = datetime.now().strftime("%H:%M")

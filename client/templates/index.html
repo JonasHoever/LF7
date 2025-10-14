@@ -7,153 +7,194 @@
 <body>
     <h1>NFC Client</h1>
     <p><a href="/register">Registrieren</a></p>
-    
+
     <h2>Scanner Status</h2>
-    <p>{{ nfc_status }}</p>
-    
-    {% if result and result.result %}
-    <h2>Scan Ergebnis</h2>
-    <p><strong>{{ result.result.message }}</strong></p>
-    <p>Tag: {{ result.nfc_tag }}</p>
-    <p>Zeit: {{ result.timestamp }}</p>
-    
-    {% if result.result.action_needed == 'register' %}
-        <p><a href="/register">Registrieren</a></p>
-    {% elif result.result.action_needed == 'pin_setup' %}
-        <h3>PIN erstellen</h3>
-        <div>
-            <label>Neue PIN (4 Ziffern):</label><br>
-            <input type="password" id="new-pin" placeholder="0000" maxlength="4" style="font-size: 18px; padding: 5px; margin: 5px;">
-        </div>
-        <div>
-            <label>PIN bestätigen:</label><br>
-            <input type="password" id="confirm-pin" placeholder="0000" maxlength="4" style="font-size: 18px; padding: 5px; margin: 5px;">
-        </div>
-        <button onclick="setupPin()" style="font-size: 16px; padding: 10px; margin: 5px;">PIN erstellen</button>
-    {% elif result.result.action_needed == 'pin_login' %}
-        <h3>Anmelden</h3>
-        <div>
-            <label>PIN eingeben:</label><br>
-            <input type="password" id="login-pin" placeholder="0000" maxlength="4" style="font-size: 18px; padding: 5px; margin: 5px;">
-        </div>
-        <button onclick="loginPin()" style="font-size: 16px; padding: 10px; margin: 5px;">Anmelden</button>
-    {% endif %}
-    {% endif %}
+    <p id="scanner-status">Warte auf NFC-Tag...</p>
+
+    <!-- Manuelle Tag-Eingabe (kann per JS deaktiviert werden) -->
+    <div id="manual-input-section">
+        <h2>Tag-ID eingeben</h2>
+        <input type="text" id="manual-tag" maxlength="20" placeholder="Tag-ID" style="font-size:18px; padding:5px;">
+        <button onclick="submitTag()" style="font-size:16px; padding:10px;">Tag prüfen</button>
+    </div>
+
+    <div id="tag-message"></div>
+    <div id="dynamic-area"></div>
 
     <script>
-        let currentNfcTag = '{{ result.nfc_tag if result else "" }}';
-        let lastKnownTag = currentNfcTag;
-        
-        // Verhindere Neuladen wenn bereits ein NFC-Tag angezeigt wird und Benutzer interagiert
-        let userInteracting = false;
-        
-        // Erkenne Benutzerinteraktion
-        document.addEventListener('focus', function(event) {
-            if (event.target.matches('input[type="password"]')) {
-                userInteracting = true;
-                console.log('User ist am PIN eingeben - stoppe Auto-Reload');
-            }
-        }, true);
-        
-        document.addEventListener('blur', function(event) {
-            if (event.target.matches('input[type="password"]')) {
-                setTimeout(() => {
-                    userInteracting = false;
-                    console.log('User hat PIN-Eingabe verlassen - Auto-Reload wieder aktiv');
-                }, 5000); // 5 Sekunden Puffer
-            }
-        }, true);
-        
+    // === KONFIGURATION ===
+    const ENABLE_MANUAL_INPUT = true; // true = manuelle Eingabe aktiviert
+    const ENABLE_AUTO_SCAN = true;    // true = Arduino-Scan aktiviert
+
+    let currentNfcTag = "";
+    let lastKnownTag = "";
+    let userInteracting = false;
+
+    // Verstecke manuelle Eingabe, wenn deaktiviert
+    if (!ENABLE_MANUAL_INPUT) {
+        document.getElementById('manual-input-section').style.display = 'none';
+    }
+
+    // Arduino-Scan: Polling für neue Tags
+    if (ENABLE_AUTO_SCAN) {
         setInterval(() => {
-            // Nur neu laden wenn Benutzer nicht gerade PIN eingibt
             if (!userInteracting) {
-                fetch('/api/last-scan').then(r => r.json()).then(data => {
+                fetch('/api/last-scan')
+                .then(r => r.json())
+                .then(data => {
                     if (data.nfc_tag && data.nfc_tag !== lastKnownTag) {
-                        console.log('Neuer NFC-Tag erkannt, lade Seite neu');
-                        location.reload();
+                        lastKnownTag = data.nfc_tag;
+                        currentNfcTag = data.nfc_tag;
+                        document.getElementById('scanner-status').innerText = "Tag erkannt: " + data.nfc_tag;
+                        submitTag(data.nfc_tag);
                     }
                 });
             }
         }, 1000);
-
-        function setupPin() {
-            const pin = document.getElementById('new-pin').value;
-            const confirm = document.getElementById('confirm-pin').value;
-            
-            if (!pin || pin.length !== 4) {
-                alert('PIN muss genau 4 Ziffern haben');
-                return;
-            }
-            
-            if (pin !== confirm) {
-                alert('PINs stimmen nicht überein');
-                return;
-            }
-            
-            userInteracting = true; // Verhindere Auto-Reload während der Anfrage
-            
-            fetch('/api/nfc/signup', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({nfc_tag: currentNfcTag, pin: pin, pin_confirm: confirm})
-            }).then(r => r.json()).then(data => {
-                alert(data.message);
-                if (data.success) {
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    userInteracting = false; // Erlaube Auto-Reload wieder bei Fehlern
-                }
-            }).catch(error => {
-                alert('Fehler bei PIN-Erstellung: ' + error.message);
-                userInteracting = false;
-            });
-        }
-
-            function loginPin() {
-    const pin = document.getElementById('login-pin').value;
-    
-    if (!pin || pin.length !== 4) {
-        alert('PIN muss genau 4 Ziffern haben');
-        return;
     }
-    
-    userInteracting = true;
-    
-    fetch('/api/nfc/signin', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({nfc_tag: currentNfcTag, pin: pin})
-    }).then(r => r.json()).then(data => {
-        if (data.success) {
-            // Hier kannst du die UID verwenden!
-            alert(data.message + "\nUID: " + data.user_id);
 
-            // Beispiel: Weiterleitung auf eine Willkommensseite mit UID
-            window.location.href = "/welcome/" + data.user_id + "/";
-
-            // Oder: Starte eine Session, zeige weitere Infos, etc.
-            // startSession(data.user_id);
-
-            // setTimeout(() => location.reload(), 1000); // Nur falls du die Seite neu laden willst
-        } else {
-            alert(data.message);
-            userInteracting = false;
+    function submitTag(tagFromArduino = null) {
+        const tagInput = tagFromArduino || document.getElementById('manual-tag').value.trim();
+        if (!tagInput) {
+            document.getElementById('tag-message').innerText = "Bitte Tag-ID eingeben!";
+            return;
         }
-    }).catch(error => {
-        alert('Fehler bei Anmeldung: ' + error.message);
-        userInteracting = false;
-    });
-}
-        // Enter-Taste Unterstützung
-        document.addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
-                if (document.getElementById('new-pin') && document.activeElement.id.includes('pin')) {
-                    setupPin();
-                } else if (document.getElementById('login-pin') && document.activeElement.id === 'login-pin') {
-                    loginPin();
-                }
+        currentNfcTag = tagInput;
+        userInteracting = true;
+        document.getElementById('tag-message').innerText = "Prüfe Tag...";
+        document.getElementById('dynamic-area').innerHTML = "";
+
+        fetch('/api/nfc/request', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({nfc_tag: currentNfcTag})
+        })
+        .then(r => r.json())
+        .then(status => {
+            if (!status.exists) {
+                document.getElementById('tag-message').innerText = "Tag nicht registriert!";
+                document.getElementById('dynamic-area').innerHTML = '<a href="/register">Registrieren</a>';
+                userInteracting = false;
+                return;
             }
+            if (status.pin_set) {
+                document.getElementById('tag-message').innerText = "PIN erforderlich!";
+                document.getElementById('dynamic-area').innerHTML = `
+                    <h3>Anmelden</h3>
+                    <label>PIN eingeben:</label><br>
+                    <input type="password" id="login-pin" maxlength="4" style="font-size:18px; padding:5px;">
+                    <button onclick="loginPin()" style="font-size:16px; padding:10px;">Anmelden</button>
+                `;
+            } else {
+                document.getElementById('tag-message').innerText = "PIN kann jetzt erstellt werden!";
+                document.getElementById('dynamic-area').innerHTML = `
+                    <h3>PIN erstellen</h3>
+                    <label>Neue PIN (4 Ziffern):</label><br>
+                    <input type="password" id="new-pin" maxlength="4" style="font-size:18px; padding:5px;"><br>
+                    <label>PIN bestätigen:</label><br>
+                    <input type="password" id="confirm-pin" maxlength="4" style="font-size:18px; padding:5px;"><br>
+                    <button onclick="setupPin()" style="font-size:16px; padding:10px;">PIN erstellen</button>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('tag-message').innerText = "Serverfehler: " + error.message;
+            userInteracting = false;
         });
+    }
+
+    function setupPin() {
+        const pin = document.getElementById('new-pin').value;
+        const confirm = document.getElementById('confirm-pin').value;
+        if (!pin || pin.length !== 4) {
+            document.getElementById('tag-message').innerText = 'PIN muss genau 4 Ziffern haben';
+            return;
+        }
+        if (pin !== confirm) {
+            document.getElementById('tag-message').innerText = 'PINs stimmen nicht überein';
+            return;
+        }
+        userInteracting = true;
+        document.getElementById('tag-message').innerText = 'PIN wird erstellt...';
+        fetch('/api/nfc/signup', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({nfc_tag: currentNfcTag, pin: pin, pin_confirm: confirm})
+        }).then(r => r.json()).then(data => {
+            document.getElementById('tag-message').innerText = data.message;
+            if (data.success) {
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                userInteracting = false;
+            }
+        }).catch(error => {
+            document.getElementById('tag-message').innerText = 'Fehler bei PIN-Erstellung: ' + error.message;
+            userInteracting = false;
+        });
+    }
+
+    function loginPin() {
+        const pin = document.getElementById('login-pin').value;
+        if (!pin || pin.length !== 4) {
+            document.getElementById('tag-message').innerText = 'PIN muss genau 4 Ziffern haben';
+            return;
+        }
+        userInteracting = true;
+        document.getElementById('tag-message').innerText = 'Anmeldung läuft...';
+        fetch('/api/nfc/signin', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({nfc_tag: currentNfcTag, pin: pin})
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                fetch('/api/crypt/uid/' + data.user_id, {
+                    method: 'GET',
+                    headers: {'Content-Type': 'application/json'}
+                })
+                .then(r => r.json())
+                .then(cryptData => {
+                    let cryptToken = cryptData.token;
+                    let cryptKey = cryptData.key;
+                    // Direkte Weiterleitung ohne Anzeige der verschlüsselten UID
+                    window.location.href = "/welcome/" + cryptToken + "/" + cryptKey;
+                });
+            } else {
+                document.getElementById('tag-message').innerText = data.message;
+                userInteracting = false;
+            }
+        }).catch(error => {
+            document.getElementById('tag-message').innerText = 'Fehler bei Anmeldung: ' + error.message;
+            userInteracting = false;
+        });
+    }
+
+    // Enter-Taste Unterstützung
+    document.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            if (document.getElementById('new-pin') && document.activeElement.id === 'new-pin') {
+                setupPin();
+            } else if (document.getElementById('confirm-pin') && document.activeElement.id === 'confirm-pin') {
+                setupPin();
+            } else if (document.getElementById('login-pin') && document.activeElement.id === 'login-pin') {
+                loginPin();
+            } else if (document.getElementById('manual-tag') && document.activeElement.id === 'manual-tag') {
+                submitTag();
+            }
+        }
+    });
+
+    // Benutzerinteraktion erkennen
+    document.addEventListener('focus', function(event) {
+        if (event.target.matches('input[type="password"]')) {
+            userInteracting = true;
+        }
+    }, true);
+
+    document.addEventListener('blur', function(event) {
+        if (event.target.matches('input[type="password"]')) {
+            setTimeout(() => { userInteracting = false; }, 5000);
+        }
+    }, true);
     </script>
 </body>
 </html>
