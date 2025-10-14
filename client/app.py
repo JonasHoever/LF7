@@ -19,10 +19,15 @@ csfs = script.Client_Short_Function()  # Original für Terminal
 csfs2 = script.Client_Short_Function2()  # Neue Web-UI Version
 
 def find_arduino_port():
-    """Finde automatisch den Arduino Port"""
+    """Finde automatisch den Arduino Port - unterstützt macOS, Linux (Raspberry Pi OS), Windows"""
     ports = serial.tools.list_ports.comports()
     for port in ports:
-        if 'usbmodem' in port.device or 'Arduino' in port.description:
+        desc = f"{port.device} {port.description}".lower()
+        # macOS: usbmodem, usbserial, wchusbserial
+        # Raspberry Pi / Linux: ttyACM, ttyUSB
+        # Windows: COM
+        # CH340/CP210x Chips: wchusbserial, ch340, cp210
+        if any(k in desc for k in ['usbmodem', 'usbserial', 'wchusbserial', 'ttyacm', 'ttyusb', 'arduino', 'ch340', 'cp210', 'com']):
             return port.device
     return None
 
