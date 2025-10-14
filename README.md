@@ -1,19 +1,308 @@
-# NFC Worktime System - Raspberry Pi OS Installation
+# NFC Worktime System - I2C Master-Slave mit Raspberry Pi
 
-Ein NFC-basiertes Arbeitszeiterfassungssystem mit Arduino RC522 Reader, Flask Web Interface und MariaDB Backend.
+Ein **vollständig integriertes NFC-Zugangskontrollsystem** mit Arduino I2C-Bus, Keypad-PIN-Eingabe, Stepper-Motor-Drehkreuz und Raspberry Pi Backend.
 
-## System Architektur
+## 🎯 System-Übersicht
 
-- **Client**: Flask Web Interface + Arduino NFC Scanner
-- **Server**: Flask REST API + MariaDB Datenbank
-- **Arduino**: RC522 NFC Reader über USB Serial
+```
+┌─────────────┐  USB Serial  ┌──────────────┐  I2C Bus  ┌──────────────┐
+│ Raspberry   │◄────────────►│   Master     │◄─────────►│    Slave     │
+│     Pi      │              │   Arduino    │           │   Arduino    │
+│             │              │              │           │              │
+│ - Flask     │              │ - LCD 16x2   │           │ - RC522 NFC  │
+│ - MariaDB   │              │ - 4x4 Keypad │           │ - Stepper    │
+│ - Python    │              │ - Buzzer     │           │ - LED        │
+└─────────────┘              └──────────────┘           └──────────────┘
+```
 
-## Hardware Anforderungen
+## ✨ Features
 
-- Raspberry Pi (3B+, 4 oder Zero 2 W empfohlen)
-- Arduino Uno / Nano / Mega
-- RC522 NFC Reader Modul (13.56MHz)
-- NFC Tags (MIFARE Classic, NTAG213, etc.)
+- ✅ **I2C Master-Slave Kommunikation** zwischen zwei Arduinos
+- ✅ **NFC-Authentifizierung** mit MFRC522 (13.56MHz MIFARE Tags)
+- ✅ **PIN-Eingabe** über 4x4 Matrix Keypad
+- ✅ **LCD Display** mit Echtzeit-Feedback (16x2 I2C)
+- ✅ **Stepper Motor** Drehkreuz-Steuerung (28BYJ-48)
+- ✅ **Raspberry Pi Backend** mit Flask + MariaDB
+- ✅ **Arbeitszeiterfassung** automatisch beim Ein-/Auschecken
+- ✅ **Web Interface** für Verwaltung und Monitoring
+- ✅ **Buzzer Feedback** für akustische Bestätigung
+- ✅ **Timeout-Handling** und Fehlerbehandlung
+
+## 📦 Hardware-Komponenten
+
+### Master Arduino (USB zu Raspberry Pi)
+- Arduino Uno/Nano/Mega
+- I2C LCD Display 16x2 (Adresse 0x27 oder 0x3F)
+- 4x4 Matrix Keypad
+- Buzzer (optional, Pin 11)
+- USB-Kabel zu Raspberry Pi
+
+### Slave Arduino (I2C zum Master)
+- Arduino Uno/Nano/Mega
+- MFRC522 NFC Reader (⚠️ **3.3V!**)
+- 28BYJ-48 Stepper Motor + ULN2003 Driver
+- Status-LED + 220Ω Widerstand
+- Externe 5V Stromversorgung (min. 1A)
+
+### I2C Bus
+- 2x 4.7kΩ Pull-Up Widerstände (SDA, SCL)
+- Kurze Kabel (< 30cm)
+- Gemeinsame GND-Verbindung
+
+### Raspberry Pi
+- Raspberry Pi 3B+ / 4 / Zero 2 W
+- microSD-Karte (min. 8GB)
+- Netzteil 5V 3A
+
+## 🚀 Quick Start
+
+### Schnellinstallation (Alles in einem)
+```bash
+cd ~/projekt
+./quick_setup.sh
+```
+
+### Manuelle Installation
+
+#### 1. Raspberry Pi vorbereiten
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install git mariadb-server -y
+```
+
+#### 2. Hardware verkabeln
+**Siehe `WIRING_GUIDE.md` für detaillierte Verkabelung!**
+
+**Wichtigste Punkte:**
+- RC522 an **3.3V** (NICHT 5V!)
+- I2C: SDA=A4, SCL=A5, GND gemeinsam
+- Pull-Up Widerstände: 2x 4.7kΩ
+- Stepper: Externe 5V Versorgung
+
+#### 3. Arduino Sketches hochladen
+```bash
+# In Arduino IDE:
+# 1. Öffne client/arduino_master_i2c.ino → Upload auf Master
+# 2. Öffne client/arduino_slave_i2c.ino → Upload auf Slave
+```
+
+#### 4. System testen (ohne Raspberry Pi)
+```bash
+cd client
+python3 test_i2c_system.py
+# Scanne NFC → Gib PIN ein → Tippe 'ok' oder 'deny'
+```
+
+#### 5. Raspberry Pi Integration
+```bash
+# Server starten
+cd server
+./install_server.sh
+mysql -u root -p < src/db_setup.sql
+cp .env.example .env
+nano .env  # DB_PASS eintragen
+./start_server.sh
+
+# Client starten (neues Terminal)
+cd client
+./install.sh
+cp .env.example .env
+nano .env  # SERVER_URL eintragen
+./start.sh
+```
+
+#### 6. Browser öffnen
+```
+http://localhost:5000
+```
+
+## 📖 Dokumentation
+
+| Datei | Beschreibung |
+|-------|--------------|
+| **COMPLETE.md** | ✅ Vollständige Projektübersicht |
+| **QUICKSTART.md** | 🚀 Schnellstart-Anleitung |
+| **WIRING_GUIDE.md** | 🔌 Detaillierte Verkabelung |
+| **ARCHITECTURE.md** | 📐 System-Diagramme + Ablauf |
+| **PINOUT.md** | 📍 Pin-Belegungen aller Komponenten |
+| **README.md** | 📚 Diese Datei |
+
+## 🎬 Systemablauf
+
+1. **User** legt NFC-Tag auf Slave-Reader
+2. **Slave** scannt UID, blinkt 3x mit LED
+3. **I2C** Slave sendet `UID:xxxxx` an Master
+4. **Master** zeigt auf LCD: "PIN eingeben: ____"
+5. **User** gibt 4-stellige PIN am Keypad ein
+6. **Master** sendet `UID:xxxxx;PIN:yyyy` an Raspberry Pi (Serial)
+7. **Pi** validiert über MariaDB Server
+8. **Pi** sendet `ACCESS_GRANTED` oder `ACCESS_DENIED` zurück
+9. **Master** zeigt auf LCD: "Willkommen!" (bei Erfolg)
+10. **Master** sendet `OPEN` via I2C an Slave
+11. **Slave** dreht Motor 90° vor → 1s → 90° zurück
+12. **System** bereit für nächsten Scan
+
+## 🔧 Konfiguration
+
+### Master Arduino
+```cpp
+// In arduino_master_i2c.ino:
+#define SLAVE_ADDRESS 0x08           // I2C Slave-Adresse
+#define PIN_LENGTH 4                 // PIN-Länge
+#define PIN_TIMEOUT 30000            // 30s Timeout
+LiquidCrystal_I2C lcd(0x27, 16, 2); // LCD-Adresse (ggf. 0x3F)
+```
+
+### Slave Arduino
+```cpp
+// In arduino_slave_i2c.ino:
+#define SLAVE_ADDRESS 0x08           // I2C Adresse
+#define DOOR_OPEN_STEPS 512          // 90° Drehung (2048 = 360°)
+#define MOTOR_SPEED 10               // RPM
+```
+
+### Raspberry Pi Client
+```bash
+# client/.env
+FLASK_HOST=0.0.0.0
+FLASK_PORT=5000
+SERVER_URL=http://localhost:5001
+ARDUINO_BAUDRATE=9600
+```
+
+### Raspberry Pi Server
+```bash
+# server/.env
+FLASK_HOST=0.0.0.0
+FLASK_PORT=5001
+DB_HOST=localhost
+DB_USER=root
+DB_PASS=your_password
+DB_NAME=pro1
+```
+
+## 🐛 Troubleshooting
+
+### NFC wird nicht erkannt
+```bash
+# Prüfe RC522 Spannung (MUSS 3.3V sein!)
+# Prüfe SPI-Pins (SS=10, RST=9, MOSI=11, MISO=12, SCK=13)
+# Tag < 3cm vom Reader halten
+```
+
+### LCD zeigt nichts
+```bash
+# I2C-Adresse scannen
+sudo i2cdetect -y 1
+# Falls nicht 0x27, im Code ändern: lcd(0x3F, 16, 2)
+```
+
+### Motor dreht nicht
+```bash
+# Externe 5V Versorgung (min. 1A) anschließen
+# Kabelreihenfolge prüfen: IN1=2, IN2=3, IN3=4, IN4=5
+```
+
+### Arduino nicht gefunden
+```bash
+# User zur dialout Gruppe hinzufügen
+sudo usermod -a -G dialout $USER
+# Neu einloggen
+logout
+```
+
+### I2C funktioniert nicht
+```bash
+# Pull-Up Widerstände prüfen (4.7kΩ)
+# SDA/SCL nicht vertauscht?
+# GND gemeinsam verbunden?
+# Kurze Kabel verwenden (< 30cm)
+```
+
+## 📡 Serial Protokoll
+
+### Master → Raspberry Pi
+```
+MASTER_READY                    # Startup
+NFC_DETECTED:4A3B2C1D          # NFC gescannt
+UID:4A3B2C1D;PIN:1234          # PIN eingegeben
+SENDING_OPEN_TO_SLAVE          # Motor-Befehl
+SERVER_TIMEOUT                 # Keine Antwort
+```
+
+### Raspberry Pi → Master
+```
+ACCESS_GRANTED                 # Login erfolgreich
+ACCESS_DENIED                  # Falsches Passwort/User
+```
+
+### Master → Slave (I2C)
+```
+(Request)                      # Fragt nach UID
+OPEN                          # Motor aktivieren
+```
+
+### Slave → Master (I2C)
+```
+UID:4A3B2C1D\n                # NFC-Tag UID
+NONE\n                        # Kein Tag vorhanden
+```
+
+## 🔒 Sicherheit
+
+- **PIN-Verschlüsselung**: Argon2 Hash in Datenbank
+- **UID-Verschlüsselung**: Fernet (AES) für URLs
+- **SQL Injection**: Prepared Statements
+- **Timeout-Protection**: 30s PIN, 10s Server
+- **Login-Versuche**: Im Server limitieren (TODO)
+
+## 🎓 Erweiterte Features
+
+### Buzzer aktivieren
+```cpp
+// In Master setup():
+pinMode(11, OUTPUT);
+
+// Bei Erfolg/Fehler (bereits implementiert):
+tone(11, 1000, 200);  // Erfolg: 1kHz
+tone(11, 200, 500);   // Fehler: 200Hz
+```
+
+### Motor-Drehung anpassen
+```cpp
+// In Slave:
+#define DOOR_OPEN_STEPS 1024  // 180° statt 90°
+#define MOTOR_SPEED 15        // Schneller drehen
+```
+
+### PIN-Länge ändern
+```cpp
+// In Master:
+#define PIN_LENGTH 6  // 6-stellige PIN
+```
+
+## 🎉 Credits
+
+- **MFRC522 Library**: miguelbalboa/rfid
+- **LiquidCrystal I2C**: johnrickman/LiquidCrystal_I2C
+- **Keypad Library**: Chris--A/Keypad
+- **Flask**: Pallets Projects
+- **pyserial**: Python Serial Port Extension
+
+## 📄 Lizenz
+
+MIT License
+
+## 🆘 Support
+
+Bei Problemen:
+1. Prüfe Verkabelung (`WIRING_GUIDE.md`)
+2. Serial Monitor checken (9600 baud)
+3. I2C-Scan durchführen: `sudo i2cdetect -y 1`
+4. Test-Script ausführen: `python3 test_i2c_system.py`
+5. GitHub Issue erstellen
+
+---
 
 ### RC522 Verkabelung (Arduino Uno)
 

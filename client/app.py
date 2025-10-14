@@ -74,14 +74,18 @@ def is_valid_nfc_tag(tag):
     return all(c in '0123456789ABCDEF' for c in tag.upper())
 
 def nfc_scanner_thread():
-    """Läuft in separatem Thread und liest kontinuierlich vom Arduino"""
+    """Läuft in separatem Thread und kommuniziert mit Master Arduino (I2C System)"""
     global ser
     
     if not ser:
         print("🚫 Arduino nicht verfügbar - NFC-Scanner-Thread beendet")
         return
     
-    print("🚀 NFC-Scanner Thread gestartet")
+    print("🚀 I2C Master Arduino Thread gestartet")
+    print("📡 Erwartet Nachrichten: UID:xxxxx;PIN:yyyy")
+    
+    current_uid = None
+    current_pin = None
     
     while True:
         try:
@@ -114,17 +118,76 @@ def nfc_scanner_thread():
                     continue
                 
             if ser.in_waiting > 0:
-                # Lese eine Zeile vom Arduino
+                # Lese eine Zeile vom Arduino Master
                 line = ser.readline().decode('utf-8', errors='ignore').strip()
-                nfc_tag = line.strip()
                 
-                if nfc_tag and is_valid_nfc_tag(nfc_tag):
-                    print(f"✅ Gültige NFC-Tag-ID empfangen: {nfc_tag}")
-                    # Triggere die Route direkt
-                    handle_nfc_request(nfc_tag)
-                    time.sleep(1)
-                elif nfc_tag:
-                    print(f"⚠️  Ungültige Daten ignoriert: {nfc_tag}")
+                if not line:
+                    continue
+                
+                print(f"📥 Arduino: {line}")
+                
+                # Parse verschiedene Nachrichten-Typen
+                if line.startswith("MASTER_READY"):
+                    print("✅ Master Arduino bereit")
+                    socketio.emit('system_status', {'status': 'master_ready'})
+                    
+                elif line.startswith("NFC_DETECTED:"):
+                    # NFC wurde gescannt, warte auf PIN
+                    uid = line.split(":")[1].strip()
+                    current_uid = uid
+                    print(f"🏷️  NFC erkannt: {uid}")
+                    socketio.emit('nfc_scanned', {
+                        'type': 'nfc_detected',
+                        'tag_id': uid,
+                        'timestamp': time.strftime('%H:%M:%S')
+                    })
+                    
+                elif line.startswith("UID:") and ";PIN:" in line:
+                    # Vollständige Nachricht: UID:xxxxx;PIN:yyyy
+                    parts = line.split(";")
+                    uid_part = parts[0]
+                    pin_part = parts[1]
+                    
+                    uid = uid_part.split(":")[1].strip()
+                    pin = pin_part.split(":")[1].strip()
+                    
+                    current_uid = uid
+                    current_pin = pin
+                    
+                    print(f"🔐 UID: {uid}, PIN: {'*' * len(pin)}")
+                    
+                    # Validiere via Server
+                    validation_result = validate_nfc_and_pin(uid, pin)
+                    
+                    # Sende Antwort an Arduino
+                    if validation_result:
+                        print("✅ Zugang gewährt")
+                        ser.write(b"ACCESS_GRANTED\n")
+                        socketio.emit('access_result', {
+                            'status': 'granted',
+                            'uid': uid,
+                            'timestamp': time.strftime('%H:%M:%S')
+                        })
+                    else:
+                        print("❌ Zugang verweigert")
+                        ser.write(b"ACCESS_DENIED\n")
+                        socketio.emit('access_result', {
+                            'status': 'denied',
+                            'uid': uid,
+                            'timestamp': time.strftime('%H:%M:%S')
+                        })
+                    
+                elif line.startswith("SENDING_OPEN_TO_SLAVE"):
+                    print("🚪 Motor-Befehl an Slave gesendet")
+                    socketio.emit('door_status', {'status': 'opening'})
+                    
+                elif line.startswith("SERVER_TIMEOUT"):
+                    print("⏱️  Server Timeout am Master")
+                    socketio.emit('system_status', {'status': 'timeout'})
+                    
+                else:
+                    # Debug-Ausgabe für unbekannte Nachrichten
+                    print(f"ℹ️  Info: {line}")
             
             time.sleep(0.1)  # Kurze Pause zwischen Reads
             
@@ -182,6 +245,55 @@ def handle_nfc_request(nfc_tag):
 # Globale Variable für letztes Scan-Ergebnis (für Web-UI Anzeige)
 last_scan_result = None
 last_scanned_tag = None
+
+def validate_nfc_and_pin(uid, pin):
+    """
+    Validiert NFC-UID und PIN über den Server
+    Returns: True bei Erfolg, False bei Fehler
+    """
+    try:
+        print(f"🔐 Validiere UID={uid}, PIN={'*' * len(pin)}")
+        
+        # Rufe Server-API für NFC-Signin auf
+        response = requests.post(
+            f"{script.SERVER_URL}/nfc/signin",
+            json={
+                "nfc_tag": uid,
+                "pin": pin
+            },
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if data.get("success"):
+                user_id = data.get("user_id")
+                name = data.get("name")
+                
+                print(f"✅ Login erfolgreich: {name} (ID: {user_id})")
+                
+                # Starte/Stoppe Arbeitszeit-Session
+                worktime_result = script.worktime_script(uid)
+                print(f"⏱️  Worktime: {worktime_result}")
+                
+                return True
+            else:
+                print(f"❌ Login fehlgeschlagen: {data.get('message', 'Unbekannter Fehler')}")
+                return False
+        else:
+            print(f"❌ Server-Fehler: HTTP {response.status_code}")
+            return False
+            
+    except requests.exceptions.Timeout:
+        print("⏱️  Server Timeout")
+        return False
+    except requests.exceptions.ConnectionError:
+        print("❌ Server nicht erreichbar")
+        return False
+    except Exception as e:
+        print(f"❌ Validierungsfehler: {e}")
+        return False
 
 def handle_web_nfc_request(nfc_tag):
     """Verarbeitet Arduino NFC-Scanner Daten für Web-UI Anzeige"""
